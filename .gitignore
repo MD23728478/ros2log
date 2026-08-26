@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+*.sqlite
+*.sqlite3
+*.db
+.venv/
+venv/
+.pytest_cache/
+.idea/
+.vscode/
+.DS_Store
+
+# dont commit the database
+storage/*
+!storage/.gitkeep
+
+# Torry local dotfiles
+.slopbox.toml

@@ -1,0 +1,28 @@
+services:
+  app:
+    container_name: ros2log
+
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      - ./storage:/storage
+
+    logging:
+      driver: local
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+    healthcheck:
+      test: ["CMD", "python", "-c", "import config, urllib.request; urllib.request.urlopen(f'http://localhost:{config.SERVER_PORT}/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    restart: unless-stopped
