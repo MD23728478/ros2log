@@ -25,8 +25,11 @@ RUN python -m pip install --no-cache-dir -r /tmp/requirements.txt \
     && rm -f /tmp/requirements.txt
 
 COPY config.py ./config.py
+COPY pytest.ini ./pytest.ini
 COPY backend ./backend
+COPY runner ./runner
 COPY frontend ./frontend
+COPY test ./test
 COPY docker/start.sh ./docker/start.sh
 
 RUN chmod 0555 /app/docker/start.sh
