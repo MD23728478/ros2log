@@ -16,10 +16,8 @@
     >
   </head>
 
-  <body>
-    <main class="container py-5">
-      {% block content %}{% endblock %}
-    </main>
+  <body class="app-shell">
+    {% block content %}{% endblock %}
 
     <script
       src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"

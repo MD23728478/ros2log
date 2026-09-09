@@ -1,7 +1,7 @@
 APP_ENV = "development"
 PERSIST_DATABASE = True
 SERVER_ADDRESS = "0.0.0.0"
-SERVER_PORT = 5000
+SERVER_PORT = 5001
 
 if APP_ENV not in {"development", "production"}:
     raise ValueError("APP_ENV must be 'development' or 'production'")

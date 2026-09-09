@@ -1,14 +1,12 @@
 # ros2log
 
-
-
 # Development
 
 ```bash
 docker compose up --build
 ```
 
-Open <http://localhost:5000>. Stop it with `Ctrl+C`.
+Open <http://localhost:5001>. Stop it with `Ctrl+C`.
 
 Run the tests in another terminal:
 
@@ -44,14 +42,12 @@ def about():
 Create `frontend/templates/about.html`:
 
 ```html
-{% extends "base.html" %}
-
-{% block content %}
-  <h1>About</h1>
+{% extends "base.html" %} {% block content %}
+<h1>About</h1>
 {% endblock %}
 ```
 
-Visit <http://localhost:5000/about>.
+Visit <http://localhost:5001/about>.
 
 `base.html` contains the common HTML and loads Bootstrap. Other templates
 extend it and fill its `content` block. Use Bootstrap classes in templates:
@@ -83,7 +79,7 @@ Import the new file at the bottom of `backend/api/__init__.py`:
 from backend.api import customers
 ```
 
-Visit <http://localhost:5000/api/customers>.
+Visit <http://localhost:5001/api/customers>.
 
 ## Add a database table
 
