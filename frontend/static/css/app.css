@@ -1,0 +1,108 @@
+html,
+body {
+	min-height: 100%;
+}
+
+body {
+	margin: 0;
+	background: #2a2a2a;
+	color: #f2f2f2;
+	font-family: Arial, Helvetica, sans-serif;
+}
+
+.app-shell {
+	min-height: 100vh;
+	background: #2a2a2a;
+}
+
+.app-header {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	padding: 1.25rem 2rem;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.app-brand-mark {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	width: 5.75rem;
+	height: 5.75rem;
+	padding: 0.75rem;
+	border-radius: 0.45rem;
+	background: #2f3138;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.app-brand-mark span {
+	font-size: 1.35rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	line-height: 1;
+}
+
+.app-brand-mark small {
+	margin-top: 0.25rem;
+	font-size: 0.52rem;
+	line-height: 1.1;
+	color: rgba(242, 242, 242, 0.72);
+}
+
+.app-dashboard {
+	display: flex;
+	min-height: calc(100vh - 6.5rem);
+	padding: 0 0 1.5rem;
+}
+
+.app-sidebar {
+	width: 15.75rem;
+	padding: 1.5rem 1rem 1.5rem 1.5rem;
+	border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.app-sidebar-title {
+	margin-bottom: 1rem;
+	font-size: 1rem;
+	color: rgba(242, 242, 242, 0.85);
+}
+
+.app-sidebar-nav {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.app-sidebar-link {
+	display: block;
+	padding: 0.35rem 0.5rem;
+	border-radius: 0.35rem;
+	color: rgba(242, 242, 242, 0.78);
+	text-decoration: none;
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.app-sidebar-link:hover,
+.app-sidebar-link.active {
+	background: rgba(255, 255, 255, 0.05);
+	color: #ffffff;
+}
+
+.app-dashboard-main {
+	flex: 1;
+	padding: 1.5rem 2rem;
+}
+
+.app-dashboard-title {
+	margin: 0 0 1.5rem;
+	font-size: 1.9rem;
+	font-weight: 400;
+	color: rgba(242, 242, 242, 0.92);
+}
+
+.app-dashboard-placeholder {
+	min-height: 28rem;
+	border-radius: 1.2rem;
+	background: rgba(255, 255, 255, 0.03);
+	border: 1px solid rgba(255, 255, 255, 0.04);
+}
