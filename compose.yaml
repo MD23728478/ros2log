@@ -12,6 +12,9 @@ services:
     volumes:
       - ./storage:/storage
 
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     logging:
       driver: local
       options:
@@ -20,9 +23,18 @@ services:
 
     healthcheck:
       test: ["CMD", "python", "-c", "import config, urllib.request; urllib.request.urlopen(f'http://localhost:{config.SERVER_PORT}/health')"]
-      interval: 10s
+      interval: 300s
       timeout: 3s
       retries: 3
       start_period: 5s
+
+    restart: unless-stopped
+
+  ros2:
+    profiles: ["development"]
+
+    build:
+      context: .
+      dockerfile: docker/ros2.Dockerfile
 
     restart: unless-stopped
