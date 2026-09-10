@@ -1,4 +1,4 @@
-import json
+import subprocess
 from http.server import ThreadingHTTPServer
 from threading import Thread
 from unittest.mock import Mock
@@ -12,8 +12,19 @@ from runner.client import Ros2CommandError
 from runner.server import CommandHandler
 
 
-def command_result(stdout="", return_code=0, stderr=""):
-    return {"return_code": return_code, "stdout": stdout, "stderr": stderr}
+HZ = "average rate: 2.000\n\tmin: 0.49s max: 0.51s std dev: 0.01s window: 8\n"
+BW = "32 B/s from 8 messages\n\tMessage size mean: 16 B min: 16 B max: 16 B\n"
+
+
+def command_result(stdout="", return_code=0, stderr="", timed_out=None):
+    result = {"return_code": return_code, "stdout": stdout, "stderr": stderr}
+    if timed_out is not None:
+        result["timed_out"] = timed_out
+    return result
+
+
+def sampled(stdout):
+    return command_result(stdout, return_code=124, timed_out=True)
 
 
 @pytest.fixture
@@ -40,10 +51,7 @@ def command(monkeypatch):
 
 @pytest.mark.parametrize(
     "topic",
-    [
-        None, "", "relative", "/", "/bad name", "/a//b", "/a/",
-        "/9bad", "--help", "/a\nb", "/" + "a" * 256,
-    ],
+    [None, "", "relative", "/", "/bad name", "/a//b", "/a/", "/9bad", "--help", "/a\nb", "/" + "a" * 256],
 )
 def test_invalid_topic_does_not_call_runner(client, command, topic):
     query = {} if topic is None else {"topic": topic}
@@ -53,57 +61,65 @@ def test_invalid_topic_does_not_call_runner(client, command, topic):
     command.assert_not_called()
 
 
-@pytest.mark.parametrize(
-    "message_type, output, expected",
-    [
-        ("std_msgs/msg/Float64", "data: 18.6\n---\n", {"data": 18.6}),
-        ("std_msgs/msg/String", "data: 'off'\n---\n", {"data": "off"}),
-        (
-            "example_msgs/msg/Nested",
-            "pose:\n  x: 1.5\n  y: -2.0\nactive: true\n---\n",
-            {"pose": {"x": 1.5, "y": -2.0}, "active": True},
-        ),
-        ("std_msgs/msg/Empty", "{}\n---\n", {}),
-        (
-            "std_msgs/msg/Float64MultiArray",
-            "data: [.nan, .inf, -.inf]\n---\n",
-            {"data": ["nan", "inf", "-inf"]},
-        ),
-        ("std_msgs/msg/ByteMultiArray", "data: !!binary AQID\n---\n", {"data": [1, 2, 3]}),
-    ],
-)
-def test_reads_selected_topic_and_preserves_message(
-    client, command, message_type, output, expected
-):
-    command.side_effect = [command_result(message_type + "\n"), command_result(output)]
-    response = client.get("/api/topic-monitor", query_string={"topic": "/robot_2/sensor"})
+def test_returns_latest_measurements_for_selected_topic(client, command):
+    command.side_effect = [
+        command_result("sensor_msgs/msg/LaserScan\n"),
+        sampled(HZ + "average rate: 12.500\n"),
+        sampled("Subscribed to [/robot_2/scan]\n" + BW + "1.25 KB/s from 20 messages\n"),
+    ]
+    response = client.get("/api/topic-monitor?topic=/robot_2/scan")
     assert response.status_code == 200
     assert response.get_json() == {
         "source": "ros2",
-        "topic": "/robot_2/sensor",
-        "message_type": message_type,
-        "latest_message": expected,
+        "topic": "/robot_2/scan",
+        "frequency_hz": 12.5,
+        "bandwidth_bytes_per_second": 1250.0,
     }
     assert response.headers["Cache-Control"] == "no-store"
     assert command.call_args_list[0].args == (
-        "topic", "--include-hidden-topics", "type", "/robot_2/sensor"
+        "topic", "--include-hidden-topics", "type", "/robot_2/scan"
     )
-    echo_arguments = command.call_args_list[1].args
-    assert echo_arguments[:4] == ("topic", "echo", "/robot_2/sensor", message_type)
-    assert "--once" in echo_arguments
-    assert "--full-length" in echo_arguments
-    assert echo_arguments[echo_arguments.index("--timeout") + 1] == "5.0"
+    assert command.call_args_list[1].args == (
+        "topic", "hz", "/robot_2/scan", "--window", "100", "--wall-time"
+    )
+    assert command.call_args_list[2].args == (
+        "topic", "bw", "/robot_2/scan", "--window", "100"
+    )
+    for call in command.call_args_list[1:]:
+        assert call.kwargs == {"timeout_seconds": 5.0, "capture_on_timeout": True}
 
 
-def test_short_command_timeout_reduces_message_wait(app, client, command):
-    app.config["ROS2_COMMAND_TIMEOUT"] = 4
+@pytest.mark.parametrize(
+    "value, unit, expected", [(32, "B", 32), (1.25, "KB", 1250), (2.5, "MB", 2500000)]
+)
+def test_bandwidth_uses_decimal_bytes_per_second(client, command, value, unit, expected):
     command.side_effect = [
         command_result("std_msgs/msg/String\n"),
-        command_result("data: hello\n---\n"),
+        sampled(HZ),
+        sampled(f"{value} {unit}/s from 8 messages\n"),
     ]
+    response = client.get("/api/topic-monitor?topic=/status")
+    assert response.status_code == 200
+    assert response.get_json()["bandwidth_bytes_per_second"] == expected
+
+
+def test_incomplete_trailing_lines_are_ignored(client, command):
+    command.side_effect = [
+        command_result("std_msgs/msg/Float64\n"),
+        sampled(HZ + "average rate: 9"),
+        sampled(BW + "1.25 MB/s from 2 messages"),
+    ]
+    response = client.get("/api/topic-monitor?topic=/reading")
+    assert response.status_code == 200
+    assert response.get_json()["frequency_hz"] == 2.0
+    assert response.get_json()["bandwidth_bytes_per_second"] == 32.0
+
+
+def test_short_command_timeout_limits_both_measurements(app, client, command):
+    app.config["ROS2_COMMAND_TIMEOUT"] = 4
+    command.side_effect = [command_result("std_msgs/msg/String\n"), sampled(HZ), sampled(BW)]
     assert client.get("/api/topic-monitor?topic=/status").status_code == 200
-    arguments = command.call_args.args
-    assert arguments[arguments.index("--timeout") + 1] == "2.0"
+    assert all(call.kwargs["timeout_seconds"] == 4 for call in command.call_args_list[1:])
 
 
 @pytest.mark.parametrize(
@@ -116,70 +132,79 @@ def test_short_command_timeout_reduces_message_wait(app, client, command):
         (command_result("invalid/type\n"), 502),
     ],
 )
-def test_type_discovery_errors_do_not_subscribe(client, command, result, status):
+def test_type_discovery_errors_do_not_start_measurements(client, command, result, status):
     command.return_value = result
     response = client.get("/api/topic-monitor?topic=/status")
     assert response.status_code == status
     assert "error" in response.get_json()
-    assert "latest_message" not in response.get_json()
     assert command.call_count == 1
 
 
 @pytest.mark.parametrize(
-    "result, status",
+    "stage, output, status",
     [
-        (command_result(), 504),
-        (command_result(return_code=1, stderr="Subscription failed"), 502),
-        (command_result("data: [broken\n---\n"), 502),
-        (command_result("data: 1\n---\ndata: 2\n---\n"), 502),
-        (command_result("not a message\n---\n"), 502),
-        (command_result("---\n"), 502),
-        (command_result("data: !!python/object:example {}\n---\n"), 502),
+        ("hz", "", 504),
+        ("hz", "WARNING: topic is not published yet\n", 504),
+        ("hz", "average rate: nan\n", 502),
+        ("hz", "average rate: -1.0\n", 502),
+        ("hz", "average rate: invalid\n", 502),
+        ("bw", "Subscribed to [/status]\n", 504),
+        ("bw", "nan B/s from 2 messages\n", 502),
+        ("bw", "-1 B/s from 2 messages\n", 502),
+        ("bw", "1 KiB/s from 2 messages\n", 502),
     ],
 )
-def test_message_errors_never_return_sample_data(client, command, result, status):
-    command.side_effect = [command_result("std_msgs/msg/String\n"), result]
+def test_missing_or_invalid_statistics_return_errors(client, command, stage, output, status):
+    results = [command_result("std_msgs/msg/String\n")]
+    if stage == "bw":
+        results.append(sampled(HZ))
+    results.append(sampled(output))
+    command.side_effect = results
     response = client.get("/api/topic-monitor?topic=/status")
     assert response.status_code == status
-    assert "error" in response.get_json()
-    assert "latest_message" not in response.get_json()
+    assert set(response.get_json()) == {"error"}
 
 
-@pytest.mark.parametrize("stage", ["type", "echo"])
+@pytest.mark.parametrize("return_code, timed_out", [(1, False), (124, False)])
+def test_failed_commands_cannot_supply_measurements(client, command, return_code, timed_out):
+    command.side_effect = [
+        command_result("std_msgs/msg/String\n"),
+        command_result(HZ, return_code=return_code, timed_out=timed_out),
+    ]
+    assert client.get("/api/topic-monitor?topic=/status").status_code == 502
+
+
+@pytest.mark.parametrize("stage", ["type", "hz", "bw"])
 def test_runner_failures_return_json(client, command, stage):
-    failure = Ros2CommandError("Runner unavailable")
-    command.side_effect = (
-        failure if stage == "type"
-        else [command_result("std_msgs/msg/String\n"), failure]
-    )
+    results = []
+    if stage != "type":
+        results.append(command_result("std_msgs/msg/String\n"))
+    if stage == "bw":
+        results.append(sampled(HZ))
+    command.side_effect = results + [Ros2CommandError("Runner unavailable")]
     response = client.get("/api/topic-monitor?topic=/status")
     assert response.status_code == 503
     assert response.get_json() == {"error": "Runner unavailable"}
 
 
-def test_malformed_runner_json_returns_json_error(client, command):
-    command.side_effect = json.JSONDecodeError("Invalid runner JSON", "invalid", 0)
-    response = client.get("/api/topic-monitor?topic=/status")
-    assert response.status_code == 502
-    assert "error" in response.get_json()
+def test_metrics_use_http_runner_and_refresh_samples(app, client, monkeypatch):
+    # Exercise HTTP and timeout handling, simulating only the ROS process.
+    rates = iter(["average rate: 1.500\n", "average rate: 3.000\n"])
+    commands = []
 
+    def subprocess_run(arguments, **options):
+        commands.append(arguments)
+        assert options["shell"] is False
+        assert options["env"]["PYTHONUNBUFFERED"] == "1"
+        if arguments[1:4] == ["topic", "--include-hidden-topics", "type"]:
+            assert arguments[4] == "/custom/reading"
+            return subprocess.CompletedProcess(arguments, 0, "std_msgs/msg/Float64\n", "")
+        assert arguments[3] == "/custom/reading"
+        assert options["timeout"] == 5.0
+        output = next(rates) if arguments[2] == "hz" else BW
+        raise subprocess.TimeoutExpired(arguments, options["timeout"], output=output.encode())
 
-def test_monitor_uses_http_runner_and_fetches_new_data(app, client, monkeypatch):
-    # Exercise the route and real HTTP client/server together. Only the ROS
-    # process is replaced, so this test does not require a ROS installation.
-    readings = iter(["data: 12.5\n---\n", "data: 34.8\n---\n"])
-    calls = []
-
-    def run_command(arguments, timeout_seconds):
-        calls.append(arguments)
-        assert timeout_seconds == config.ROS2_COMMAND_TIMEOUT
-        if arguments[:3] == ["topic", "--include-hidden-topics", "type"]:
-            assert arguments[3] == "/custom/reading"
-            return command_result("std_msgs/msg/Float64\n")
-        assert arguments[:3] == ["topic", "echo", "/custom/reading"]
-        return command_result(next(readings))
-
-    monkeypatch.setattr("runner.server.run_command", run_command)
+    monkeypatch.setattr("runner.server.subprocess.run", subprocess_run)
     server = ThreadingHTTPServer(("127.0.0.1", 0), CommandHandler)
     thread = Thread(target=server.serve_forever)
     thread.start()
@@ -189,9 +214,11 @@ def test_monitor_uses_http_runner_and_fetches_new_data(app, client, monkeypatch)
         first = client.get("/api/topic-monitor?topic=/custom/reading")
         second = client.get("/api/topic-monitor?topic=/custom/reading")
         assert first.status_code == second.status_code == 200
-        assert first.get_json()["latest_message"] == {"data": 12.5}
-        assert second.get_json()["latest_message"] == {"data": 34.8}
-        assert len(calls) == 4
+        assert first.get_json()["frequency_hz"] == 1.5
+        assert second.get_json()["frequency_hz"] == 3.0
+        assert second.get_json()["bandwidth_bytes_per_second"] == 32.0
+        assert len(commands) == 6
+        assert not any("echo" in arguments for arguments in commands)
     finally:
         server.shutdown()
         server.server_close()
