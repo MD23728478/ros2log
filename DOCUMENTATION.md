@@ -91,12 +91,11 @@ available before the command ends. Both the app and runner need this update.
 
 ### Run a background ROS 2 command
 
-Long-running commands use a separate runner interface. This does not change
-the behavior or response format of the synchronous command helper above.
+The runner manages one background command at a time. Starting another while it
+is active returns `409`. A finished command is replaced by the next start.
 
 ```python
 from runner.client import (
-    ros2_background_command_forget,
     ros2_background_command_start,
     ros2_background_command_status,
     ros2_background_command_stop,
@@ -110,62 +109,19 @@ command = ros2_background_command_start(
     "/example/topic",
     timeout_seconds=3600,
 )
-command = ros2_background_command_status(command["command_id"])
-command = ros2_background_command_stop(command["command_id"])
-ros2_background_command_forget(command["command_id"])
+command = ros2_background_command_status()
+command = ros2_background_command_stop()
 ```
-
-The matching runner endpoints are:
 
 | Method | Path | Behavior |
 | --- | --- | --- |
 | `POST` | `/background-command` | Starts a command and returns `201` with its state |
-| `GET` | `/background-command/<command_id>` | Returns its current state and output tails |
-| `POST` | `/background-command/<command_id>/stop` | Interrupts it and returns its final state |
-| `DELETE` | `/background-command/<command_id>` | Forgets a finished command |
+| `GET` | `/background-command` | Returns its state and output |
+| `POST` | `/background-command/stop` | Stops it and returns its final state |
 
-Start requests contain `arguments` and a mandatory positive
-`timeout_seconds`. The timeout is enforced by the runner even when the Flask
-application is unavailable. Status responses contain `state` (`running`,
-`stopping`, or `finished`), `return_code`, the most recent 64 KiB of stdout and
-stderr, truncation flags, `termination_reason` (`manual`, `timeout`, or null),
-and `forced`. Stopping sends `SIGINT` to the command's process group so ROS 2
-can finalize its files. If it has not exited after 30 seconds, the runner uses
-`SIGKILL` and reports `forced: true`.
-
-Background command IDs and process handles exist only in runner memory. They
-survive a Flask restart while the runner remains active, but not a runner
-restart. Finished commands remain available until explicitly forgotten or the
-runner exits. On a graceful runner shutdown, active commands are interrupted.
-
-### Recording design for the Flask API
-
-Recording is intentionally an application concern rather than a special
-runner operation. A future Flask implementation should:
-
-1. Generate and persist its own recording ID, independently of the ephemeral
-   runner command ID.
-2. Validate requested topics and enforce one active recording at a time.
-3. Start `ros2 bag record --output /storage/recordings/<recording-id> ...`
-   through `ros2_background_command_start`, supplying a safety deadline.
-4. Persist the topics, both IDs, timestamps, output path, and application-level
-   recording state in SQLite.
-5. On progress requests, poll the runner and combine its process state and log
-   tail with elapsed time and the size of the bag under `/storage`.
-6. On stop requests, call the background stop helper, save the final result,
-   and forget the runner command after its result has been harvested.
-
-A Flask-only restart can reconnect using the persisted runner command ID. If
-the runner has restarted and returns `404`, Flask should mark the recording as
-interrupted; any bag data already written remains in `/storage`. A natural
-zero exit maps to completed, a manual interrupt to stopped, a deadline to
-timed out, and a nonzero exit or forced kill to failed. This future Flask work
-will require a database schema change. The runner change itself does not alter
-the database.
-
-The development app and ROS 2 containers share `./storage` at `/storage`.
-Production must likewise make the same physical storage available to both the
-Flask container and the host runner at `/storage`.
+TL;DR: The runner owns one background ROS 2 command at a time. Start, inspect,
+or stop it without an ID. Its final state remains available until it is replaced
+or the runner restarts.
 
 ## Topic Monitor API
 

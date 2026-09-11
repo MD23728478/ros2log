@@ -5,8 +5,8 @@
 The Flask application runs in Docker and sends time-limited ROS 2 commands to a
 small command runner over HTTP. During development the runner and random test
 topics run in a Jazzy container. In production the runner executes directly on
-the ROS 2 host. The runner also supports separately managed background commands
-for operations such as recording ROS bags; their IDs are held in runner memory.
+the ROS 2 host. The runner also supports one background command for operations
+such as recording a ROS bag.
 
 ```mermaid
 flowchart LR
@@ -71,8 +71,7 @@ docker compose up --build
 The runner and Flask application must see the same physical storage at
 `/storage` before using background commands to create bag files. The
 development Compose profile mounts `./storage` into both containers. See
-[DOCUMENTATION.md](DOCUMENTATION.md) for the background command protocol and
-the proposed Flask recording workflow.
+[DOCUMENTATION.md](DOCUMENTATION.md) for the background command protocol.
 
 ## Tests
 

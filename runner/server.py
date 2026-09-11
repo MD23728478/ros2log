@@ -5,7 +5,6 @@ import os
 import signal
 import subprocess
 import threading
-import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import config
@@ -13,14 +12,6 @@ import config
 
 BACKGROUND_OUTPUT_LIMIT = 64 * 1024
 BACKGROUND_STOP_GRACE_SECONDS = 30
-
-
-class BackgroundCommandNotFound(Exception):
-    pass
-
-
-class BackgroundCommandConflict(Exception):
-    pass
 
 
 class OutputTail:
@@ -39,11 +30,9 @@ class OutputTail:
 class BackgroundCommand:
     def __init__(
         self,
-        command_id: str,
         process: subprocess.Popen,
         timeout_seconds: float,
     ) -> None:
-        self.command_id = command_id
         self.process = process
         self.state = "running"
         self.return_code = None
@@ -122,7 +111,6 @@ class BackgroundCommand:
     def result(self) -> dict[str, int | str | bool | None]:
         with self.lock:
             return {
-                "command_id": self.command_id,
                 "state": self.state,
                 "return_code": self.return_code,
                 "stdout": self.stdout.value,
@@ -134,55 +122,66 @@ class BackgroundCommand:
             }
 
 
-class BackgroundCommandManager:
+class BackgroundCommandSlot:
     def __init__(self) -> None:
-        self.commands: dict[str, BackgroundCommand] = {}
-        self.lock = threading.RLock()
+        self.command: BackgroundCommand | None = None
+        self.lock = threading.Lock()
 
-    def start(self, arguments: list[str], timeout_seconds: float) -> dict:
-        process = subprocess.Popen(
-            ["ros2", *arguments],
-            shell=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            errors="replace",
-            start_new_session=True,
-            env={**os.environ, "PYTHONUNBUFFERED": "1"},
-        )
-        command_id = str(uuid.uuid4())
-        command = BackgroundCommand(command_id, process, timeout_seconds)
+    def start(self, arguments: list[str], timeout_seconds: float) -> dict | None:
         with self.lock:
-            self.commands[command_id] = command
-        return command.result()
+            if (
+                self.command is not None
+                and self.command.result()["state"] != "finished"
+            ):
+                return None
+            process = subprocess.Popen(
+                ["ros2", *arguments],
+                shell=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                errors="replace",
+                start_new_session=True,
+                env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            )
+            self.command = BackgroundCommand(process, timeout_seconds)
+            return self.command.result()
 
-    def get(self, command_id: str) -> BackgroundCommand:
+    def status(self) -> dict | None:
         with self.lock:
-            command = self.commands.get(command_id)
+            command = self.command
+        return command.result() if command is not None else None
+
+    def stop(self) -> dict | None:
+        with self.lock:
+            command = self.command
         if command is None:
-            raise BackgroundCommandNotFound
-        return command
-
-    def status(self, command_id: str) -> dict:
-        return self.get(command_id).result()
-
-    def stop(self, command_id: str) -> dict:
-        command = self.get(command_id)
+            return None
         command.stop()
         return command.result()
 
-    def forget(self, command_id: str) -> None:
-        command = self.get(command_id)
-        if command.result()["state"] != "finished":
-            raise BackgroundCommandConflict
-        with self.lock:
-            self.commands.pop(command_id, None)
-
     def shutdown(self) -> None:
         with self.lock:
-            commands = list(self.commands.values())
-        for command in commands:
+            command = self.command
+        if command is not None:
             command.stop()
+
+
+def valid_arguments(arguments) -> bool:
+    return (
+        isinstance(arguments, list)
+        and bool(arguments)
+        and all(isinstance(argument, str) and argument for argument in arguments)
+    )
+
+
+def valid_timeout(timeout) -> bool:
+    return (
+        isinstance(timeout, (int, float))
+        and not isinstance(timeout, bool)
+        and math.isfinite(timeout)
+        and timeout > 0
+    )
 
 
 def run_command(
@@ -234,11 +233,9 @@ class CommandHandler(BaseHTTPRequestHandler):
             self.send_json(200, {"status": "ok"})
             return
 
-        command_id = self.background_command_id()
-        if command_id is not None:
-            try:
-                result = self.server.background_commands.status(command_id)
-            except BackgroundCommandNotFound:
+        if self.path == "/background-command":
+            result = self.server.background_command.status()
+            if result is None:
                 self.send_json(404, {"error": "Background command not found"})
                 return
             self.send_json(200, result)
@@ -251,11 +248,9 @@ class CommandHandler(BaseHTTPRequestHandler):
             self.start_background_command()
             return
 
-        command_id = self.background_command_id("/stop")
-        if command_id is not None:
-            try:
-                result = self.server.background_commands.stop(command_id)
-            except BackgroundCommandNotFound:
+        if self.path == "/background-command/stop":
+            result = self.server.background_command.stop()
+            if result is None:
                 self.send_json(404, {"error": "Background command not found"})
                 return
             self.send_json(200, result)
@@ -278,15 +273,8 @@ class CommandHandler(BaseHTTPRequestHandler):
             )
             capture_on_timeout = data.get("capture_on_timeout", False)
             if (
-                not isinstance(arguments, list)
-                or not arguments
-                or not all(
-                    isinstance(argument, str) and argument for argument in arguments
-                )
-                or not isinstance(timeout_seconds, (int, float))
-                or isinstance(timeout_seconds, bool)
-                or not math.isfinite(timeout_seconds)
-                or timeout_seconds <= 0
+                not valid_arguments(arguments)
+                or not valid_timeout(timeout_seconds)
                 or not isinstance(capture_on_timeout, bool)
             ):
                 raise ValueError
@@ -310,23 +298,6 @@ class CommandHandler(BaseHTTPRequestHandler):
 
         self.send_json(200, result)
 
-    def do_DELETE(self) -> None:
-        command_id = self.background_command_id()
-        if command_id is None:
-            self.send_error(404)
-            return
-
-        try:
-            self.server.background_commands.forget(command_id)
-        except BackgroundCommandNotFound:
-            self.send_json(404, {"error": "Background command not found"})
-            return
-        except BackgroundCommandConflict:
-            self.send_json(409, {"error": "Background command is still active"})
-            return
-        self.send_response(204)
-        self.end_headers()
-
     def start_background_command(self) -> None:
         if self.headers.get_content_type() != "application/json":
             self.send_json(415, {"error": "Content-Type must be application/json"})
@@ -336,55 +307,25 @@ class CommandHandler(BaseHTTPRequestHandler):
             data = self.read_json()
             arguments = data["arguments"]
             timeout_seconds = data["timeout_seconds"]
-            if not self.valid_arguments(arguments) or not self.valid_timeout(
-                timeout_seconds
-            ):
+            if not valid_arguments(arguments) or not valid_timeout(timeout_seconds):
                 raise ValueError
         except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             self.send_json(400, {"error": "Invalid background command request"})
             return
 
         try:
-            result = self.server.background_commands.start(
-                arguments, timeout_seconds
-            )
+            result = self.server.background_command.start(arguments, timeout_seconds)
         except OSError as error:
             self.send_json(500, {"error": f"Could not run ROS 2 command: {error}"})
+            return
+        if result is None:
+            self.send_json(409, {"error": "Background command is already active"})
             return
         self.send_json(201, result)
 
     def read_json(self) -> dict:
         content_length = int(self.headers.get("Content-Length", "0"))
         return json.loads(self.rfile.read(content_length))
-
-    @staticmethod
-    def valid_arguments(arguments) -> bool:
-        return (
-            isinstance(arguments, list)
-            and bool(arguments)
-            and all(isinstance(argument, str) and argument for argument in arguments)
-        )
-
-    @staticmethod
-    def valid_timeout(timeout_seconds) -> bool:
-        return (
-            isinstance(timeout_seconds, (int, float))
-            and not isinstance(timeout_seconds, bool)
-            and math.isfinite(timeout_seconds)
-            and timeout_seconds > 0
-        )
-
-    def background_command_id(self, suffix: str = "") -> str | None:
-        prefix = "/background-command/"
-        if not self.path.startswith(prefix) or not self.path.endswith(suffix):
-            return None
-        command_id = self.path[len(prefix) :]
-        if suffix:
-            command_id = command_id[: -len(suffix)]
-        try:
-            return str(uuid.UUID(command_id))
-        except ValueError:
-            return None
 
     def send_json(self, status: int, data: dict) -> None:
         body = json.dumps(data).encode("utf-8")
@@ -401,10 +342,10 @@ class CommandHandler(BaseHTTPRequestHandler):
 class RunnerServer(ThreadingHTTPServer):
     def __init__(self, server_address, handler_class=CommandHandler) -> None:
         super().__init__(server_address, handler_class)
-        self.background_commands = BackgroundCommandManager()
+        self.background_command = BackgroundCommandSlot()
 
     def server_close(self) -> None:
-        self.background_commands.shutdown()
+        self.background_command.shutdown()
         super().server_close()
 
 

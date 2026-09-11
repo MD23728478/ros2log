@@ -1,6 +1,5 @@
 import json
 import math
-import uuid
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -15,6 +14,21 @@ class Ros2BackgroundCommandError(Ros2CommandError):
     def __init__(self, message: str, status_code: int | None = None) -> None:
         super().__init__(message)
         self.status_code = status_code
+
+
+def _valid_arguments(arguments) -> bool:
+    return bool(arguments) and all(
+        isinstance(argument, str) and argument for argument in arguments
+    )
+
+
+def _valid_timeout(timeout) -> bool:
+    return (
+        isinstance(timeout, (int, float))
+        and not isinstance(timeout, bool)
+        and math.isfinite(timeout)
+        and timeout > 0
+    )
 
 
 def ros2_runner_is_healthy() -> bool:
@@ -35,9 +49,7 @@ def ros2_command(
     timeout_seconds: float | None = None,
     capture_on_timeout: bool = False,
 ) -> dict[str, int | str | bool]:
-    if not arguments or not all(
-        isinstance(argument, str) and argument for argument in arguments
-    ):
+    if not _valid_arguments(arguments):
         raise Ros2CommandError("ROS 2 command arguments must be non-empty strings")
 
     timeout = (
@@ -45,12 +57,7 @@ def ros2_command(
         if timeout_seconds is None
         else timeout_seconds
     )
-    if (
-        not isinstance(timeout, (int, float))
-        or isinstance(timeout, bool)
-        or not math.isfinite(timeout)
-        or timeout <= 0
-    ):
+    if not _valid_timeout(timeout):
         raise Ros2CommandError("ROS 2 command timeout must be greater than zero")
 
     if not isinstance(capture_on_timeout, bool):
@@ -102,18 +109,11 @@ def ros2_background_command_start(
     *arguments: str,
     timeout_seconds: float,
 ) -> dict[str, int | str | bool | None]:
-    if not arguments or not all(
-        isinstance(argument, str) and argument for argument in arguments
-    ):
+    if not _valid_arguments(arguments):
         raise Ros2BackgroundCommandError(
             "ROS 2 command arguments must be non-empty strings"
         )
-    if (
-        not isinstance(timeout_seconds, (int, float))
-        or isinstance(timeout_seconds, bool)
-        or not math.isfinite(timeout_seconds)
-        or timeout_seconds <= 0
-    ):
+    if not _valid_timeout(timeout_seconds):
         raise Ros2BackgroundCommandError(
             "ROS 2 background command timeout must be greater than zero"
         )
@@ -126,33 +126,18 @@ def ros2_background_command_start(
     return _validate_background_command_result(result)
 
 
-def ros2_background_command_status(
-    command_id: str,
-) -> dict[str, int | str | bool | None]:
-    command_id = _validate_background_command_id(command_id)
-    result = _background_command_request(f"/background-command/{command_id}")
-    return _validate_background_command_result(result, command_id)
+def ros2_background_command_status() -> dict[str, int | str | bool | None]:
+    result = _background_command_request("/background-command")
+    return _validate_background_command_result(result)
 
 
-def ros2_background_command_stop(
-    command_id: str,
-) -> dict[str, int | str | bool | None]:
-    command_id = _validate_background_command_id(command_id)
+def ros2_background_command_stop() -> dict[str, int | str | bool | None]:
     result = _background_command_request(
-        f"/background-command/{command_id}/stop",
+        "/background-command/stop",
         method="POST",
         request_timeout=BACKGROUND_STOP_REQUEST_TIMEOUT,
     )
-    return _validate_background_command_result(result, command_id)
-
-
-def ros2_background_command_forget(command_id: str) -> None:
-    command_id = _validate_background_command_id(command_id)
-    _background_command_request(
-        f"/background-command/{command_id}",
-        method="DELETE",
-        expect_json=False,
-    )
+    return _validate_background_command_result(result)
 
 
 BACKGROUND_REQUEST_TIMEOUT = 2
@@ -165,7 +150,6 @@ def _background_command_request(
     method: str = "GET",
     payload: dict | None = None,
     request_timeout: float = BACKGROUND_REQUEST_TIMEOUT,
-    expect_json: bool = True,
 ):
     address = current_app.config["ROS2_RUNNER_ADDRESS"]
     port = current_app.config["ROS2_RUNNER_PORT"]
@@ -183,8 +167,6 @@ def _background_command_request(
 
     try:
         with urlopen(request, timeout=request_timeout) as response:
-            if not expect_json:
-                return None
             return json.load(response)
     except HTTPError as error:
         try:
@@ -202,35 +184,19 @@ def _background_command_request(
         ) from error
 
 
-def _validate_background_command_id(command_id: str) -> str:
-    try:
-        normalized = str(uuid.UUID(command_id))
-    except (AttributeError, TypeError, ValueError) as error:
-        raise Ros2BackgroundCommandError(
-            "ROS 2 background command ID is invalid"
-        ) from error
-    if command_id != normalized:
-        raise Ros2BackgroundCommandError("ROS 2 background command ID is invalid")
-    return normalized
-
-
 def _validate_background_command_result(
     result,
-    expected_command_id: str | None = None,
 ) -> dict[str, int | str | bool | None]:
     if not isinstance(result, dict):
         raise Ros2BackgroundCommandError(
             "ROS 2 runner returned an invalid background command response"
         )
 
-    command_id = result.get("command_id")
     return_code = result.get("return_code")
     state = result.get("state")
     termination_reason = result.get("termination_reason")
     valid = (
-        isinstance(command_id, str)
-        and (expected_command_id is None or command_id == expected_command_id)
-        and isinstance(state, str)
+        isinstance(state, str)
         and state in {"running", "stopping", "finished"}
         and (return_code is None or type(return_code) is int)
         and isinstance(result.get("stdout"), str)
@@ -246,11 +212,6 @@ def _validate_background_command_result(
         )
         and type(result.get("forced")) is bool
     )
-    if valid:
-        try:
-            valid = str(uuid.UUID(command_id)) == command_id
-        except ValueError:
-            valid = False
     if not valid:
         raise Ros2BackgroundCommandError(
             "ROS 2 runner returned an invalid background command response"
