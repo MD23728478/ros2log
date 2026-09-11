@@ -37,4 +37,7 @@ services:
       context: .
       dockerfile: docker/ros2.Dockerfile
 
+    volumes:
+      - ./storage:/storage
+
     restart: unless-stopped
