@@ -2,7 +2,7 @@
 
 ## Architecture
 
-The Flask application runs in Docker and sends finite ROS 2 commands to a
+The Flask application runs in Docker and sends time-limited ROS 2 commands to a
 small command runner over HTTP. During development the runner and random test
 topics run in a Jazzy container. In production the runner executes directly on
 the ROS 2 host.
