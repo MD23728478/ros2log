@@ -89,6 +89,40 @@ available before the command ends. Both the app and runner need this update.
 `GET /api/ros2/health` checks whether the HTTP runner responds. It returns
 `200` with `{"status": "ok"}` or `503` with `{"status": "unavailable"}`.
 
+### Run a background ROS 2 command
+
+The runner manages one background command at a time. Starting another while it
+is active returns `409`. A finished command is replaced by the next start.
+
+```python
+from runner.client import (
+    ros2_background_command_start,
+    ros2_background_command_status,
+    ros2_background_command_stop,
+)
+
+command = ros2_background_command_start(
+    "bag",
+    "record",
+    "--output",
+    "/storage/recordings/example",
+    "/example/topic",
+    timeout_seconds=3600,
+)
+command = ros2_background_command_status()
+command = ros2_background_command_stop()
+```
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| `POST` | `/background-command` | Starts a command and returns `201` with its state |
+| `GET` | `/background-command` | Returns its state and output |
+| `POST` | `/background-command/stop` | Stops it and returns its final state |
+
+TL;DR: The runner owns one background ROS 2 command at a time. Start, inspect,
+or stop it without an ID. Its final state remains available until it is replaced
+or the runner restarts.
+
 ## Topic Monitor API
 
 `GET /api/topic-monitor?topic=/ros2log/test/temperature` measures frequency
