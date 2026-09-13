@@ -1,0 +1,24 @@
+<section id="topic-monitor" class="topic-monitor">
+  <header class="topic-monitor-header">
+    <h2 class="topic-monitor-title">Topic Monitor</h2>
+  </header>
+
+  <form id="topic-monitor-form" class="topic-monitor-form" onsubmit="return false;">
+    <label for="topic-monitor-input">Topic name</label>
+    <input id="topic-monitor-input" class="form-control" type="text" placeholder="/example/topic" />
+    <div class="topic-monitor-actions">
+      <button id="topic-monitor-btn" class="btn btn-secondary">Measure</button>
+      <button id="topic-monitor-auto" class="btn btn-outline-secondary">Auto</button>
+    </div>
+  </form>
+
+  <div id="topic-monitor-result" class="topic-monitor-result" aria-live="polite">
+    <div class="topic-monitor-row"><strong>Source:</strong> <span id="tm-source">—</span></div>
+    <div class="topic-monitor-row"><strong>Topic:</strong> <span id="tm-topic">—</span></div>
+    <div class="topic-monitor-row"><strong>Frequency (Hz):</strong> <span id="tm-frequency">—</span></div>
+    <div class="topic-monitor-row"><strong>Bandwidth (B/s):</strong> <span id="tm-bandwidth">—</span></div>
+    <div id="topic-monitor-error" class="topic-monitor-error"></div>
+  </div>
+</section>
+
+<script src="{{ url_for('static', filename='js/topic-monitor.js') }}"></script>
