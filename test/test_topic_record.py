@@ -59,19 +59,29 @@ def stop_command(monkeypatch):
     return mock
 
 
-def test_start_recording_returns_output_path_and_state(client, start_command):
+@pytest.mark.parametrize(
+    "topics",
+    [
+        ["/ros2log/test/temperature"],
+        ["/ros2log/test/temperature", "/ros2log/test/battery"],
+    ],
+)
+def test_start_recording_returns_output_path_and_state(client, start_command, topics):
     start_command.return_value = background_result(state="running")
-    response = client.post(
-        "/api/record/start", json={"topics": ["/ros2log/test/temperature"]}
-    )
+    response = client.post("/api/record/start", json={"topics": topics})
     assert response.status_code == 201
     body = response.get_json()
     assert body["state"] == "running"
     assert body["output"].startswith("/storage/recording-")
-    start_command.assert_called_once()
-    called_args = start_command.call_args.args
-    assert called_args[:4] == ("bag", "record", "--output", body["output"])
-    assert "/ros2log/test/temperature" in called_args
+    start_command.assert_called_once_with(
+        "bag",
+        "record",
+        "--output",
+        body["output"],
+        "--topics",
+        *topics,
+        timeout_seconds=3600,
+    )
 
 
 @pytest.mark.parametrize(

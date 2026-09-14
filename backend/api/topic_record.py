@@ -32,7 +32,7 @@ def record_start():
 
     try:
         result = ros2_background_command_start(
-            "bag", "record", "--output", output_path, *topics,
+            "bag", "record", "--output", output_path, "--topics", *topics,
             timeout_seconds=3600,
         )
     except Ros2BackgroundCommandError as error:
