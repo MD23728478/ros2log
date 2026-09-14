@@ -1,0 +1,64 @@
+import re
+from datetime import datetime, timezone
+
+from flask import jsonify, request
+
+from backend.api import blueprint
+from runner.client import (
+    Ros2BackgroundCommandError,
+    ros2_background_command_start,
+    ros2_background_command_status,
+    ros2_background_command_stop,
+)
+
+
+TOPIC_NAME_PATTERN = re.compile(
+    r"/[A-Za-z_][A-Za-z0-9_]*(?:/[A-Za-z_][A-Za-z0-9_]*)*"
+)
+
+
+@blueprint.post("/record/start")
+def record_start():
+    body = request.get_json(silent=True) or {}
+    topics = body.get("topics")
+
+    if not isinstance(topics, list) or not topics or not all(
+        isinstance(topic, str) and TOPIC_NAME_PATTERN.fullmatch(topic) for topic in topics
+    ):
+        return jsonify(error="Provide a non-empty list of valid topic names."), 400
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    output_path = f"/storage/recording-{timestamp}"
+
+    try:
+        result = ros2_background_command_start(
+            "bag", "record", "--output", output_path, *topics,
+            timeout_seconds=3600,
+        )
+    except Ros2BackgroundCommandError as error:
+        status = error.status_code or 503
+        return jsonify(error=str(error)), status
+
+    return jsonify(output=output_path, **result), 201
+
+
+@blueprint.get("/record/status")
+def record_status():
+    try:
+        result = ros2_background_command_status()
+    except Ros2BackgroundCommandError as error:
+        status = error.status_code or 503
+        return jsonify(error=str(error)), status
+
+    return jsonify(result)
+
+
+@blueprint.post("/record/stop")
+def record_stop():
+    try:
+        result = ros2_background_command_stop()
+    except Ros2BackgroundCommandError as error:
+        status = error.status_code or 503
+        return jsonify(error=str(error)), status
+
+    return jsonify(result)

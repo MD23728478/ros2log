@@ -10,9 +10,13 @@
 
     <main class="app-dashboard-main">
       <h1 class="app-dashboard-title">Dashboard</h1>
-      <div class="app-dashboard-placeholder">
+      <div class="dashboard-tools">
+        {% include "topic_list.html" %}
         {% include "topic_monitor.html" %}
+        {% include "topic_recording.html" %}
       </div>
+      <script src="{{ url_for('static', filename='js/topic-list.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/topic-recording.js') }}"></script>
     </main>
   </div>
 {% endblock %}
