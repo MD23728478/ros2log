@@ -33,6 +33,7 @@
       item.textContent = topic;
       item.addEventListener('click', () => {
         input.value = topic;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
         updateSelection();
       });
       return item;

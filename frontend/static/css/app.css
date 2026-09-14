@@ -110,13 +110,17 @@ body {
 }
 
 .topic-list,
-.topic-monitor {
+.topic-monitor,
+.topic-recording {
 	padding: 1rem;
 	border-radius: 0.6rem;
 	background: rgba(255,255,255,0.02);
 	border: 1px solid rgba(255,255,255,0.03);
 }
 
+.topic-recording { grid-column: 2; }
+
+.topic-recording-header,
 .topic-list-header {
 	display: flex;
 	align-items: center;
@@ -128,6 +132,7 @@ body {
 	margin-bottom: 0.75rem;
 }
 
+.topic-recording-title,
 .topic-list-title,
 .topic-monitor-title {
 	margin: 0;
@@ -159,6 +164,27 @@ body {
 .topic-list-status { margin: 0; color: rgba(242,242,242,0.58); }
 .topic-list-error { color: #ffb3b3; }
 
+.recording-state {
+	padding: 0.15rem 0.45rem;
+	border: 1px solid rgba(255,255,255,0.12);
+	border-radius: 0.35rem;
+	color: rgba(242,242,242,0.65);
+	font-size: 0.75rem;
+}
+
+.recording-state.running {
+	border-color: rgba(34,197,94,0.35);
+	background: rgba(34,197,94,0.1);
+	color: #8de5aa;
+}
+
+.recording-state.error,
+.topic-recording-error { color: #ffb3b3; }
+.topic-recording-row { display: flex; gap: 0.4rem; padding: 0.25rem 0; overflow-wrap: anywhere; }
+.topic-recording-row strong { flex: 0 0 auto; }
+.topic-recording-actions { display: flex; gap: 0.5rem; margin: 0.75rem 0; }
+.topic-recording-error { display: none; margin-top: 0.5rem; }
+
 .topic-monitor-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; margin-bottom: 0.75rem; }
 .topic-monitor-form label { grid-column: 1 / -1; }
 .topic-monitor-form input { min-width: 0; }
@@ -185,5 +211,6 @@ body {
 
 @media (max-width: 48rem) {
 	.dashboard-tools { grid-template-columns: 1fr; }
+	.topic-recording { grid-column: auto; }
 }
 
