@@ -119,6 +119,7 @@ body {
 }
 
 .topic-recording { grid-column: 2; }
+.topic-list { grid-row: 1 / span 2; align-self: stretch; }
 
 .topic-recording-header,
 .topic-list-header {
@@ -211,6 +212,7 @@ body {
 
 @media (max-width: 48rem) {
 	.dashboard-tools { grid-template-columns: 1fr; }
+	.topic-list { grid-row: auto; }
 	.topic-recording { grid-column: auto; }
 }
 
