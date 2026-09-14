@@ -106,3 +106,45 @@ body {
 	background: rgba(255, 255, 255, 0.03);
 	border: 1px solid rgba(255, 255, 255, 0.04);
 }
+
+.topic-monitor {
+	max-width: 42rem;
+	padding: 1rem;
+	border-radius: 0.6rem;
+	background: rgba(255,255,255,0.02);
+	border: 1px solid rgba(255,255,255,0.03);
+}
+
+.topic-monitor-header {
+	margin-bottom: 0.75rem;
+}
+
+.topic-monitor-title {
+	margin: 0;
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+.topic-monitor-form { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem; }
+.topic-monitor-form input { flex: 1; }
+.topic-monitor-actions { display: flex; gap: 0.5rem; }
+
+.topic-monitor-row { padding: 0.25rem 0; color: rgba(242,242,242,0.92); }
+.topic-monitor-error { color: #ffb3b3; margin-top: 0.5rem; display: none; }
+
+/* inline spinner used by Measure button */
+.topic-spinner {
+	display: inline-block;
+	width: 0.9rem;
+	height: 0.9rem;
+	border: 2px solid rgba(255,255,255,0.18);
+	border-top-color: #ffffff;
+	border-radius: 50%;
+	margin-right: 0.45rem;
+	vertical-align: middle;
+	animation: topic-spin 0.75s linear infinite;
+}
+@keyframes topic-spin { to { transform: rotate(360deg); } }
+
+.btn.loading { opacity: 0.95; }
+
