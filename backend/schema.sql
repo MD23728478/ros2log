@@ -12,3 +12,7 @@ CREATE TABLE IF NOT EXISTS recordings (
     started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     finished_at TEXT
 );
+
+-- Keep the runner's single active command unambiguously matched to one database row.
+CREATE UNIQUE INDEX IF NOT EXISTS one_started_recording
+ON recordings (status) WHERE status = 'started';
