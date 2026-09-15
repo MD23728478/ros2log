@@ -150,6 +150,30 @@ def test_stop_returns_finished_state(client, stop_command):
     assert body["termination_reason"] == "manual"
 
 
+def test_stop_marks_latest_started_recording_finished(app, client, stop_command):
+    with app.app_context():
+        database = get_database()
+        database.execute(
+            "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+            ("/storage/recording-test", "[]", "started"),
+        )
+        database.commit()
+
+    stop_command.return_value = background_result(
+        state="finished", return_code=0, termination_reason="manual"
+    )
+    response = client.post("/api/record/stop")
+
+    with app.app_context():
+        row = get_database().execute(
+            "SELECT status, finished_at FROM recordings"
+        ).fetchone()
+
+    assert response.status_code == 200
+    assert row["status"] == "finished"
+    assert row["finished_at"] is not None
+
+
 @pytest.mark.parametrize(
     "route, method",
     [("/api/record/status", "get"), ("/api/record/stop", "post")],

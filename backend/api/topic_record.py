@@ -71,4 +71,20 @@ def record_stop():
         status = error.status_code or 503
         return jsonify(error=str(error)), status
 
+    if result.get("state") == "finished" and result.get("return_code") == 0:
+        database = get_database()
+        database.execute(
+            """
+            UPDATE recordings
+            SET status = 'finished', finished_at = CURRENT_TIMESTAMP
+            WHERE id = (
+                SELECT id FROM recordings
+                WHERE status = 'started'
+                ORDER BY id DESC
+                LIMIT 1
+            )
+            """
+        )
+        database.commit()
+
     return jsonify(result)
