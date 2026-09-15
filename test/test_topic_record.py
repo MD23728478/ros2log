@@ -227,10 +227,28 @@ def test_stop_marks_latest_started_recording_finished(app, client, stop_command)
     "route, method",
     [("/api/record/status", "get"), ("/api/record/stop", "post")],
 )
-def test_runner_unavailable_returns_error(client, status_command, stop_command, route, method):
+def test_runner_unavailable_fails_active_recording(
+    app, client, status_command, stop_command, route, method
+):
+    with app.app_context():
+        database = get_database()
+        database.execute(
+            "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+            ("/storage/recording-test", "[]", "started"),
+        )
+        database.commit()
+
     error = Ros2BackgroundCommandError("ROS 2 runner is unavailable")
     status_command.side_effect = error
     stop_command.side_effect = error
     response = getattr(client, method)(route)
+
+    with app.app_context():
+        row = get_database().execute(
+            "SELECT status, finished_at FROM recordings"
+        ).fetchone()
+
     assert response.status_code == 503
     assert "error" in response.get_json()
+    assert row["status"] == "failed"
+    assert row["finished_at"] is not None

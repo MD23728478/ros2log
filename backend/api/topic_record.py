@@ -75,6 +75,7 @@ def record_status():
     try:
         result = ros2_background_command_status()
     except Ros2BackgroundCommandError as error:
+        _complete_latest_recording("failed")
         status = error.status_code or 503
         return jsonify(error=str(error)), status
 
@@ -95,6 +96,7 @@ def record_stop():
     try:
         result = ros2_background_command_stop()
     except Ros2BackgroundCommandError as error:
+        _complete_latest_recording("failed")
         status = error.status_code or 503
         return jsonify(error=str(error)), status
 
