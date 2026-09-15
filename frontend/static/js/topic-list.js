@@ -1,15 +1,25 @@
 (() => {
   const list = document.getElementById('topic-list');
   const refresh = document.getElementById('topic-list-refresh');
-  const input = document.getElementById('topic-monitor-input');
+  const search = document.getElementById('topic-list-search');
+  const selectionEventName = 'topics:selected';
+  const selectedTopics = new Set();
+  let allTopics = [];
+  let query = '';
 
-  function updateSelection() {
-    const selected = input.value.trim();
-    list.querySelectorAll('.topic-list-item').forEach((item) => {
-      const active = item.dataset.topic === selected;
-      item.classList.toggle('active', active);
-      item.setAttribute('aria-pressed', active);
-    });
+  function emitSelection() {
+    const topics = Array.from(selectedTopics);
+    window.dispatchEvent(new CustomEvent(selectionEventName, { detail: topics }));
+  }
+
+  function normalize(value) {
+    return value.trim().toLowerCase();
+  }
+
+  function filteredTopics() {
+    const needle = normalize(query);
+    if (!needle) return allTopics;
+    return allTopics.filter((topic) => topic.toLowerCase().includes(needle));
   }
 
   function showStatus(message, error = false) {
@@ -21,25 +31,51 @@
 
   function renderTopics(topics) {
     if (!topics.length) {
-      showStatus('No topics found.');
+      showStatus(query ? `No topics match “${query.trim()}”.` : 'No topics found.');
+      emitSelection();
       return;
     }
 
+    const availableTopics = new Set(topics);
+    Array.from(selectedTopics).forEach((topic) => {
+      if (!availableTopics.has(topic)) {
+        selectedTopics.delete(topic);
+      }
+    });
+
     const items = topics.map((topic) => {
-      const item = document.createElement('button');
-      item.className = 'topic-list-item';
-      item.type = 'button';
-      item.dataset.topic = topic;
-      item.textContent = topic;
-      item.addEventListener('click', () => {
-        input.value = topic;
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        updateSelection();
+      const item = document.createElement('label');
+      item.className = 'topic-list-item form-check';
+
+      const checkbox = document.createElement('input');
+      checkbox.className = 'form-check-input';
+      checkbox.type = 'checkbox';
+      checkbox.value = topic;
+      checkbox.checked = selectedTopics.has(topic);
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+          selectedTopics.add(topic);
+        } else {
+          selectedTopics.delete(topic);
+        }
+        item.classList.toggle('active', checkbox.checked);
+        emitSelection();
       });
+
+      const text = document.createElement('span');
+      text.className = 'form-check-label';
+      text.textContent = topic;
+
+      item.append(checkbox, text);
+      item.classList.toggle('active', checkbox.checked);
       return item;
     });
     list.replaceChildren(...items);
-    updateSelection();
+    emitSelection();
+  }
+
+  function render() {
+    renderTopics(filteredTopics());
   }
 
   async function loadTopics() {
@@ -49,7 +85,8 @@
       const response = await fetch('/api/topics', { cache: 'no-store' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-      renderTopics(data.topics || []);
+      allTopics = Array.isArray(data.topics) ? data.topics : [];
+      render();
     } catch (error) {
       showStatus(error.message || 'Could not load topics.', true);
     } finally {
@@ -58,6 +95,9 @@
   }
 
   refresh.addEventListener('click', loadTopics);
-  input.addEventListener('input', updateSelection);
+  search.addEventListener('input', () => {
+    query = search.value;
+    render();
+  });
   loadTopics();
 })();

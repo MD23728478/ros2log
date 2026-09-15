@@ -1,5 +1,4 @@
 (() => {
-  const input = document.getElementById('topic-monitor-input');
   const topic = document.getElementById('recording-topic');
   const state = document.getElementById('recording-state');
   const output = document.getElementById('recording-output');
@@ -7,17 +6,19 @@
   const stop = document.getElementById('recording-stop');
   const error = document.getElementById('recording-error');
   let pollId = null;
-  let activeTopic = '';
+  let selectedTopics = [];
 
-  function selectedTopic() {
-    return input.value.trim();
+  function selectedTopicLabels() {
+    if (!selectedTopics.length) return 'Select one or more topics from the list.';
+    if (selectedTopics.length === 1) return selectedTopics[0];
+    return `${selectedTopics.length} topics selected`;
   }
 
   function syncTopic() {
     topic.textContent = state.dataset.state === 'running'
-      ? activeTopic || 'Recording in progress.'
-      : selectedTopic() || 'Select a topic from the list.';
-    start.disabled = state.dataset.state === 'running' || !selectedTopic();
+      ? (selectedTopics.length ? selectedTopics.join(', ') : 'Recording in progress.')
+      : selectedTopicLabels();
+    start.disabled = state.dataset.state === 'running' || !selectedTopics.length;
   }
 
   function showError(message = '') {
@@ -30,7 +31,7 @@
     state.dataset.state = current;
     state.className = `recording-state ${current}`;
     state.textContent = current[0].toUpperCase() + current.slice(1);
-    start.disabled = current === 'running' || !selectedTopic();
+    start.disabled = current === 'running' || !selectedTopics.length;
     stop.disabled = current !== 'running';
     syncTopic();
 
@@ -45,6 +46,11 @@
   function render(data) {
     setState(data.state || 'idle');
     if (data.output) output.textContent = data.output;
+  }
+
+  function updateSelection(topics = []) {
+    selectedTopics = Array.isArray(topics) ? topics : [];
+    syncTopic();
   }
 
   async function request(url, options) {
@@ -71,12 +77,11 @@
   async function startRecording() {
     showError();
     start.disabled = true;
-    activeTopic = selectedTopic();
     try {
       render(await request('/api/record/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topics: [activeTopic] }),
+        body: JSON.stringify({ topics: selectedTopics }),
       }));
     } catch (failure) {
       showError(failure.message);
@@ -95,7 +100,7 @@
     }
   }
 
-  input.addEventListener('input', syncTopic);
+  window.addEventListener('topics:selected', (event) => updateSelection(event.detail));
   start.addEventListener('click', startRecording);
   stop.addEventListener('click', stopRecording);
   setState('idle');
