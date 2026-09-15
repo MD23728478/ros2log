@@ -1,3 +1,4 @@
+import json
 from unittest.mock import Mock
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 import config
 from backend.api import topic_record
 from backend.app import create_app
+from backend.database import get_database
 from runner.client import Ros2BackgroundCommandError
 
 
@@ -84,6 +86,23 @@ def test_start_recording_returns_output_path_and_state(client, start_command, to
     )
 
 
+def test_start_recording_persists_started_record(app, client, start_command):
+    topics = ["/ros2log/test/temperature", "/ros2log/test/battery"]
+    start_command.return_value = background_result(state="running")
+
+    response = client.post("/api/record/start", json={"topics": topics})
+
+    with app.app_context():
+        row = get_database().execute(
+            "SELECT output_path, topics, status, finished_at FROM recordings"
+        ).fetchone()
+
+    assert row["output_path"] == response.get_json()["output"]
+    assert json.loads(row["topics"]) == topics
+    assert row["status"] == "started"
+    assert row["finished_at"] is None
+
+
 @pytest.mark.parametrize(
     "body",
     [{}, {"topics": []}, {"topics": "not-a-list"}, {"topics": ["bad name"]}, {"topics": [123]}],
@@ -95,7 +114,7 @@ def test_invalid_topics_does_not_call_runner(client, start_command, body):
     start_command.assert_not_called()
 
 
-def test_start_conflict_when_already_recording(client, start_command):
+def test_start_conflict_when_already_recording(app, client, start_command):
     # The runner itself enforces one recording at a time; this checks that
     # its 409 passes through unchanged rather than becoming a generic 503.
     start_command.side_effect = Ros2BackgroundCommandError(
@@ -106,6 +125,11 @@ def test_start_conflict_when_already_recording(client, start_command):
     )
     assert response.status_code == 409
     assert "error" in response.get_json()
+
+    with app.app_context():
+        count = get_database().execute("SELECT COUNT(*) FROM recordings").fetchone()[0]
+
+    assert count == 0
 
 
 def test_status_returns_current_state(client, status_command):

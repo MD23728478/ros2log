@@ -1,9 +1,11 @@
+import json
 import re
 from datetime import datetime, timezone
 
 from flask import jsonify, request
 
 from backend.api import blueprint
+from backend.database import get_database
 from runner.client import (
     Ros2BackgroundCommandError,
     ros2_background_command_start,
@@ -29,6 +31,12 @@ def record_start():
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     output_path = f"/storage/recording-{timestamp}"
+    database = get_database()
+    database.execute(
+        "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+        (output_path, json.dumps(topics), "started"),
+    )
+    database.commit()
 
     try:
         result = ros2_background_command_start(
@@ -36,6 +44,8 @@ def record_start():
             timeout_seconds=3600,
         )
     except Ros2BackgroundCommandError as error:
+        database.execute("DELETE FROM recordings WHERE output_path = ?", (output_path,))
+        database.commit()
         status = error.status_code or 503
         return jsonify(error=str(error)), status
 
