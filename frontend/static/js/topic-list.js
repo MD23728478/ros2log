@@ -36,13 +36,6 @@
       return;
     }
 
-    const availableTopics = new Set(topics);
-    Array.from(selectedTopics).forEach((topic) => {
-      if (!availableTopics.has(topic)) {
-        selectedTopics.delete(topic);
-      }
-    });
-
     const items = topics.map((topic) => {
       const item = document.createElement('label');
       item.className = 'topic-list-item form-check';
@@ -78,6 +71,15 @@
     renderTopics(filteredTopics());
   }
 
+  function syncSelectionToAvailableTopics() {
+    const availableTopics = new Set(allTopics);
+    Array.from(selectedTopics).forEach((topic) => {
+      if (!availableTopics.has(topic)) {
+        selectedTopics.delete(topic);
+      }
+    });
+  }
+
   async function loadTopics() {
     refresh.disabled = true;
     showStatus('Loading topics…');
@@ -86,6 +88,7 @@
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
       allTopics = Array.isArray(data.topics) ? data.topics : [];
+      syncSelectionToAvailableTopics();
       render();
     } catch (error) {
       showStatus(error.message || 'Could not load topics.', true);
