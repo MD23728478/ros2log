@@ -19,6 +19,24 @@ TOPIC_NAME_PATTERN = re.compile(
 )
 
 
+def _complete_latest_recording(status):
+    database = get_database()
+    database.execute(
+        """
+        UPDATE recordings
+        SET status = ?, finished_at = CURRENT_TIMESTAMP
+        WHERE id = (
+            SELECT id FROM recordings
+            WHERE status = 'started'
+            ORDER BY id DESC
+            LIMIT 1
+        )
+        """,
+        (status,),
+    )
+    database.commit()
+
+
 @blueprint.post("/record/start")
 def record_start():
     body = request.get_json(silent=True) or {}
@@ -60,6 +78,15 @@ def record_status():
         status = error.status_code or 503
         return jsonify(error=str(error)), status
 
+    if result.get("state") == "finished":
+        status = (
+            "finished"
+            if result.get("termination_reason") == "manual"
+            and result.get("return_code") == 0
+            else "failed"
+        )
+        _complete_latest_recording(status)
+
     return jsonify(result)
 
 
@@ -72,19 +99,6 @@ def record_stop():
         return jsonify(error=str(error)), status
 
     if result.get("state") == "finished" and result.get("return_code") == 0:
-        database = get_database()
-        database.execute(
-            """
-            UPDATE recordings
-            SET status = 'finished', finished_at = CURRENT_TIMESTAMP
-            WHERE id = (
-                SELECT id FROM recordings
-                WHERE status = 'started'
-                ORDER BY id DESC
-                LIMIT 1
-            )
-            """
-        )
-        database.commit()
+        _complete_latest_recording("finished")
 
     return jsonify(result)

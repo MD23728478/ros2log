@@ -139,6 +139,55 @@ def test_status_returns_current_state(client, status_command):
     assert response.get_json()["state"] == "running"
 
 
+def test_status_marks_unexpectedly_finished_recording_failed(
+    app, client, status_command
+):
+    with app.app_context():
+        database = get_database()
+        database.execute(
+            "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+            ("/storage/recording-test", "[]", "started"),
+        )
+        database.commit()
+
+    status_command.return_value = background_result(state="finished", return_code=1)
+    response = client.get("/api/record/status")
+
+    with app.app_context():
+        row = get_database().execute(
+            "SELECT status, finished_at FROM recordings"
+        ).fetchone()
+
+    assert response.status_code == 200
+    assert row["status"] == "failed"
+    assert row["finished_at"] is not None
+
+
+def test_status_reconciles_successful_manual_stop_as_finished(
+    app, client, status_command
+):
+    with app.app_context():
+        database = get_database()
+        database.execute(
+            "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+            ("/storage/recording-test", "[]", "started"),
+        )
+        database.commit()
+
+    status_command.return_value = background_result(
+        state="finished", return_code=0, termination_reason="manual"
+    )
+    response = client.get("/api/record/status")
+
+    with app.app_context():
+        status = get_database().execute(
+            "SELECT status FROM recordings"
+        ).fetchone()["status"]
+
+    assert response.status_code == 200
+    assert status == "finished"
+
+
 def test_stop_returns_finished_state(client, stop_command):
     stop_command.return_value = background_result(
         state="finished", return_code=0, termination_reason="manual"
