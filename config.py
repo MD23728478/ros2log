@@ -4,6 +4,7 @@ SERVER_ADDRESS = "0.0.0.0"
 SERVER_PORT = 5000
 ROS2_RUNNER_PORT = 8765
 ROS2_COMMAND_TIMEOUT = 30
+RECORDING_TIMEOUT_SECONDS = 3600
 
 if APP_ENV not in {"development", "production"}:
     raise ValueError("APP_ENV must be 'development' or 'production'")

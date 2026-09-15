@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime, timezone
 
-from flask import jsonify, request
+from flask import current_app, jsonify, request
 
 from backend.api import blueprint
 from backend.database import get_database
@@ -59,7 +59,7 @@ def record_start():
     try:
         result = ros2_background_command_start(
             "bag", "record", "--output", output_path, "--topics", *topics,
-            timeout_seconds=3600,
+            timeout_seconds=current_app.config["RECORDING_TIMEOUT_SECONDS"],
         )
     except Ros2BackgroundCommandError as error:
         database.execute("DELETE FROM recordings WHERE output_path = ?", (output_path,))
