@@ -1,16 +1,19 @@
 <section class="topic-recording" aria-labelledby="topic-recording-title">
   <header class="topic-recording-header">
     <h2 id="topic-recording-title" class="topic-recording-title">Recording</h2>
-    <span id="recording-state" class="recording-state">Idle</span>
   </header>
+
+  <div class="recording-status-block">
+    <span id="recording-state" class="recording-state" data-state="idle">STATUS: IDLE</span>
+    <div class="recording-controls">
+      <button id="recording-start" class="btn-record-toggle" type="button" disabled>Start recording</button>
+      <button id="recording-stop" class="btn-record-toggle stop" type="button" disabled>Stop</button>
+    </div>
+  </div>
 
   <div class="topic-recording-row">
     <strong>Selected topics:</strong>
     <span id="recording-topic">Select one or more topics from the list.</span>
-  </div>
-  <div class="topic-recording-actions">
-    <button id="recording-start" class="btn btn-secondary" type="button" disabled>Start recording</button>
-    <button id="recording-stop" class="btn btn-outline-secondary" type="button" disabled>Stop</button>
   </div>
   <div class="topic-recording-row">
     <strong>Output:</strong>
@@ -18,3 +21,4 @@
   </div>
   <div id="recording-error" class="topic-recording-error" role="alert"></div>
 </section>
+
