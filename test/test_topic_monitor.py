@@ -72,6 +72,7 @@ def test_returns_latest_measurements_for_selected_topic(client, command):
     assert response.get_json() == {
         "source": "ros2",
         "topic": "/robot_2/scan",
+        "window": 100,
         "frequency_hz": 12.5,
         "bandwidth_bytes_per_second": 1250.0,
     }
@@ -87,6 +88,49 @@ def test_returns_latest_measurements_for_selected_topic(client, command):
     )
     for call in command.call_args_list[1:]:
         assert call.kwargs == {"timeout_seconds": 5.0, "capture_on_timeout": True}
+
+
+@pytest.mark.parametrize("window", [2, 25, 250, 10000])
+def test_selected_window_is_used_for_both_measurements(client, command, window):
+    command.side_effect = [command_result("std_msgs/msg/String\n"), sampled(HZ), sampled(BW)]
+    response = client.get("/api/topic-monitor", query_string={"topic": "/status", "window": window})
+    assert response.status_code == 200
+    assert response.get_json()["window"] == window
+    for call in command.call_args_list[1:]:
+        assert call.args[call.args.index("--window") + 1] == str(window)
+
+
+@pytest.mark.parametrize(
+    "window",
+    ["", "0", "1", "-2", "2.5", "1e2", "true", "NaN", "10001", " 20", "20 ", "٢", "9" * 5000],
+)
+def test_invalid_window_does_not_call_runner(client, command, window):
+    response = client.get("/api/topic-monitor", query_string={"topic": "/status", "window": window})
+    assert response.status_code == 400
+    assert "Window" in response.get_json()["error"]
+    command.assert_not_called()
+
+
+def test_duplicate_window_is_rejected(client, command):
+    response = client.get("/api/topic-monitor?topic=/status&window=20&window=30")
+    assert response.status_code == 400
+    command.assert_not_called()
+
+
+def test_window_configuration_is_shared_by_api_and_form(app, client, command):
+    app.config["TOPIC_MONITOR_WINDOW"] = {"default": 20, "min": 2, "max": 50}
+    page = client.get("/")
+    assert page.status_code == 200
+    assert b'value="20"' in page.data and b'max="50"' in page.data
+    command.side_effect = [command_result("std_msgs/msg/String\n"), sampled(HZ), sampled(BW)]
+    response = client.get("/api/topic-monitor?topic=/status")
+    assert response.status_code == 200
+    assert response.get_json()["window"] == 20
+    for call in command.call_args_list[1:]:
+        assert call.args[call.args.index("--window") + 1] == "20"
+    command.reset_mock()
+    assert client.get("/api/topic-monitor?topic=/status&window=51").status_code == 400
+    command.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -211,14 +255,16 @@ def test_metrics_use_http_runner_and_refresh_samples(app, client, monkeypatch):
     app.config["ROS2_RUNNER_ADDRESS"] = "127.0.0.1"
     app.config["ROS2_RUNNER_PORT"] = server.server_port
     try:
-        first = client.get("/api/topic-monitor?topic=/custom/reading")
-        second = client.get("/api/topic-monitor?topic=/custom/reading")
+        first = client.get("/api/topic-monitor?topic=/custom/reading&window=12")
+        second = client.get("/api/topic-monitor?topic=/custom/reading&window=300")
         assert first.status_code == second.status_code == 200
         assert first.get_json()["frequency_hz"] == 1.5
         assert second.get_json()["frequency_hz"] == 3.0
         assert second.get_json()["bandwidth_bytes_per_second"] == 32.0
         assert len(commands) == 6
         assert not any("echo" in arguments for arguments in commands)
+        assert all(arguments[arguments.index("--window") + 1] == "12" for arguments in commands[1:3])
+        assert all(arguments[arguments.index("--window") + 1] == "300" for arguments in commands[4:6])
     finally:
         server.shutdown()
         server.server_close()

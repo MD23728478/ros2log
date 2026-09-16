@@ -1,6 +1,12 @@
-<section id="topic-monitor" class="topic-monitor">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/topic-monitor.css') }}">
+
+<section id="topic-monitor" class="topic-monitor" aria-labelledby="topic-monitor-title">
   <header class="topic-monitor-header">
-    <h2 class="topic-monitor-title">Topic Monitor</h2>
+    <div>
+      <h2 id="topic-monitor-title" class="topic-monitor-title">Topic Monitor</h2>
+      <p class="topic-monitor-help">Frequency and bandwidth for a selected topic.</p>
+    </div>
+    <span id="topic-monitor-state" class="topic-monitor-state" role="status">Select a topic</span>
   </header>
 
   <div class="topic-monitor-row">
@@ -8,24 +14,57 @@
     <span id="topic-monitor-selected-count">Select topics in the list.</span>
   </div>
 
-  <form id="topic-monitor-form" class="topic-monitor-form" onsubmit="return false;">
-    <label for="topic-monitor-input">Measure topic</label>
-    <select id="topic-monitor-input" class="form-select">
-      <option value="">Select a topic from the list</option>
-    </select>
+  <form id="topic-monitor-form" class="topic-monitor-form">
+    <div class="topic-monitor-field">
+      <label for="topic-monitor-input">Measure topic</label>
+      <select id="topic-monitor-input" class="form-select" required>
+        <option value="">Select a topic from the list</option>
+      </select>
+    </div>
+    <div class="topic-monitor-field">
+      <label for="topic-monitor-window">Window (messages)</label>
+      <input id="topic-monitor-window" class="form-control" type="number" step="1" required
+             min="{{ config.TOPIC_MONITOR_WINDOW.min }}"
+             max="{{ config.TOPIC_MONITOR_WINDOW.max }}"
+             value="{{ config.TOPIC_MONITOR_WINDOW.default }}"
+             aria-describedby="topic-monitor-window-help">
+    </div>
+    <p id="topic-monitor-window-help" class="topic-monitor-help">
+      Maximum recent messages per window:
+      {{ config.TOPIC_MONITOR_WINDOW.min }}–{{ "{:,}".format(config.TOPIC_MONITOR_WINDOW.max) }}.
+      This is a sample size, not a duration.
+    </p>
     <div class="topic-monitor-actions">
-      <button id="topic-monitor-btn" class="btn btn-secondary">Measure</button>
-      <button id="topic-monitor-auto" class="btn btn-outline-secondary">Auto</button>
+      <button id="topic-monitor-btn" class="btn topic-monitor-measure" type="submit">
+        <span class="topic-spinner" aria-hidden="true"></span>
+        <span id="topic-monitor-btn-label">Measure</span>
+      </button>
+      <button id="topic-monitor-auto" class="btn btn-outline-secondary" type="button"
+              aria-pressed="false" aria-describedby="topic-monitor-timing">Auto</button>
     </div>
   </form>
 
-  <div id="topic-monitor-result" class="topic-monitor-result" aria-live="polite">
-    <div class="topic-monitor-row"><strong>Source:</strong> <span id="tm-source">—</span></div>
-    <div class="topic-monitor-row"><strong>Topic:</strong> <span id="tm-topic">—</span></div>
-    <div class="topic-monitor-row"><strong>Frequency (Hz):</strong> <span id="tm-frequency">—</span></div>
-    <div class="topic-monitor-row"><strong>Bandwidth (B/s):</strong> <span id="tm-bandwidth">—</span></div>
-    <div id="topic-monitor-error" class="topic-monitor-error"></div>
+  <div id="topic-monitor-result" class="topic-monitor-result" aria-live="polite" aria-busy="false">
+    <dl class="topic-monitor-metrics">
+      <div class="topic-monitor-metric">
+        <dt>Frequency</dt>
+        <dd><span id="tm-frequency">—</span> <span class="topic-monitor-unit">Hz</span></dd>
+      </div>
+      <div class="topic-monitor-metric">
+        <dt>Bandwidth</dt>
+        <dd><span id="tm-bandwidth">—</span> <span class="topic-monitor-unit">B/s</span></dd>
+      </div>
+    </dl>
+    <div class="topic-monitor-details">
+      <div class="topic-monitor-row"><strong>Topic:</strong> <span id="tm-topic">—</span></div>
+      <div class="topic-monitor-row"><strong>Source:</strong> <span id="tm-source">—</span></div>
+      <div class="topic-monitor-row"><strong>Window:</strong> <span id="tm-window">—</span></div>
+    </div>
   </div>
+  <div id="topic-monitor-error" class="topic-monitor-error" role="alert"></div>
+  <p id="topic-monitor-timing" class="topic-monitor-help topic-monitor-timing">
+    A reading takes about 10 seconds. Auto waits for each reading to finish before measuring again.
+  </p>
 </section>
 
 <script src="{{ url_for('static', filename='js/topic-monitor.js') }}"></script>
