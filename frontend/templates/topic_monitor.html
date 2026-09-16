@@ -3,9 +3,16 @@
     <h2 class="topic-monitor-title">Topic Monitor</h2>
   </header>
 
+  <div class="topic-monitor-row">
+    <strong>Available topics:</strong>
+    <span id="topic-monitor-selected-count">Select topics in the list.</span>
+  </div>
+
   <form id="topic-monitor-form" class="topic-monitor-form" onsubmit="return false;">
-    <label for="topic-monitor-input">Topic name</label>
-    <input id="topic-monitor-input" class="form-control" type="text" placeholder="/example/topic" />
+    <label for="topic-monitor-input">Measure topic</label>
+    <select id="topic-monitor-input" class="form-select">
+      <option value="">Select a topic from the list</option>
+    </select>
     <div class="topic-monitor-actions">
       <button id="topic-monitor-btn" class="btn btn-secondary">Measure</button>
       <button id="topic-monitor-auto" class="btn btn-outline-secondary">Auto</button>
