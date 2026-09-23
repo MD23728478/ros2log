@@ -42,6 +42,22 @@ def topic_monitor():
             error="Provide a fully qualified topic name in the 'topic' query parameter."
         ), 400
 
+    window_options = current_app.config["TOPIC_MONITOR_WINDOW"]
+    window_values = request.args.getlist("window")
+    window_text = window_values[0] if window_values else str(window_options["default"])
+    try:
+        if len(window_values) > 1 or not window_text.isascii() or not window_text.isdecimal():
+            raise ValueError
+        window = int(window_text)
+        # Bandwidth needs at least two messages; bound the retained sample count.
+        if not window_options["min"] <= window <= window_options["max"]:
+            raise ValueError
+    except ValueError:
+        return jsonify(
+            error=f"Window must be a whole number between {window_options['min']} "
+            f"and {window_options['max']} messages."
+        ), 400
+
     try:
         # Check discovery before starting measurements on a possibly absent topic.
         type_result = ros2_command("topic", "--include-hidden-topics", "type", topic)
@@ -70,7 +86,7 @@ def topic_monitor():
         sample_seconds = min(5.0, current_app.config["ROS2_COMMAND_TIMEOUT"])
         readings = {}
         for verb, pattern in (("hz", HZ_OUTPUT), ("bw", BANDWIDTH_OUTPUT)):
-            arguments = ["topic", verb, topic, "--window", "100"]
+            arguments = ["topic", verb, topic, "--window", str(window)]
             if verb == "hz":
                 arguments.append("--wall-time")
             result = ros2_command(
@@ -98,6 +114,7 @@ def topic_monitor():
     response = jsonify(
         source="ros2",
         topic=topic,
+        window=window,
         frequency_hz=readings["hz"],
         bandwidth_bytes_per_second=readings["bw"],
     )

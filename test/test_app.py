@@ -10,7 +10,7 @@ def test_pages_and_api():
 
     page = client.get("/")
     assert page.status_code == 200
-    assert b"Hello, World!" in page.data
+    assert b"Dashboard" in page.data
 
     api = client.get("/api/hello")
     assert api.status_code == 200

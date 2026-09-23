@@ -2,16 +2,27 @@
   const $ = (id) => document.getElementById(id);
   const form = $('topic-monitor-form');
   const input = $('topic-monitor-input');
+  const windowInput = $('topic-monitor-window');
   const btn = $('topic-monitor-btn');
+  const btnLabel = $('topic-monitor-btn-label');
   const autoBtn = $('topic-monitor-auto');
   const result = $('topic-monitor-result');
   const err = $('topic-monitor-error');
   const selectedCount = $('topic-monitor-selected-count');
+  const state = $('topic-monitor-state');
 
   let auto = false;
-  let intervalId = null;
+  let refreshTimer = null;
+  let inFlight = false;
+  let selectionRevision = 0;
+  let hasReading = false;
   let selectedTopics = [];
   let currentTopic = '';
+
+  function setState(text, kind = '') {
+    state.textContent = text;
+    state.dataset.state = kind;
+  }
 
   function setError(message) {
     err.textContent = message || '';
@@ -54,11 +65,13 @@
   }
 
   function syncTopicPicker(topics = []) {
+    const previousTopic = currentTopic;
     selectedTopics = Array.isArray(topics) ? topics : [];
     setSelectedCount();
     rebuildTopicOptions();
-    if (!currentTopic && auto) {
-      stopAuto();
+    // Searching the list or checking another topic must not reset this reading.
+    if (currentTopic !== previousTopic) {
+      settingsChanged();
     }
     syncControls();
   }
@@ -66,8 +79,27 @@
   function syncControls() {
     const hasTopic = Boolean(currentTopic);
     input.disabled = !selectedTopics.length;
-    btn.disabled = !hasTopic;
-    autoBtn.disabled = !hasTopic;
+    windowInput.disabled = !hasTopic;
+    btn.disabled = !hasTopic || inFlight || auto;
+    autoBtn.disabled = !hasTopic || (inFlight && !auto);
+    autoBtn.textContent = auto ? 'Stop auto' : 'Auto';
+    autoBtn.setAttribute('aria-pressed', String(auto));
+  }
+
+  function clearFields() {
+    hasReading = false;
+    ['tm-source', 'tm-topic', 'tm-frequency', 'tm-bandwidth', 'tm-window'].forEach((id) => {
+      $(id).textContent = '\u2014';
+    });
+  }
+
+  function settingsChanged() {
+    selectionRevision += 1;
+    stopAuto();
+    clearFields();
+    setError('');
+    setState(!currentTopic ? 'Select a topic' : inFlight ? 'Finishing previous reading\u2026' : 'Ready');
+    syncControls();
   }
 
   function updateFields(data) {
@@ -75,67 +107,96 @@
     $('tm-topic').textContent = data.topic || '—';
     $('tm-frequency').textContent = data.frequency_hz != null ? data.frequency_hz.toFixed(2) : '—';
     $('tm-bandwidth').textContent = data.bandwidth_bytes_per_second != null ? Math.round(data.bandwidth_bytes_per_second) : '—';
+    $('tm-window').textContent = `${data.window.toLocaleString()} messages`;
+    hasReading = true;
   }
 
   async function measure() {
-    setError('');
-    const topic = currentTopic.trim();
-    if (!topic) {
-      setError('Select a topic from the dropdown.');
+    if (inFlight) return;
+    if (!currentTopic || !form.reportValidity()) {
+      stopAuto();
       return;
     }
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+    setError('');
+    const topic = currentTopic;
+    const sampleWindow = windowInput.valueAsNumber;
+    const revision = selectionRevision;
+    inFlight = true;
     setLoading(true);
+    setState('Measuring\u2026', 'loading');
     try {
-      const url = `/api/topic-monitor?topic=${encodeURIComponent(topic)}`;
+      const query = new URLSearchParams({ topic, window: String(sampleWindow) });
+      const url = `/api/topic-monitor?${query}`;
       const res = await fetch(url, { cache: 'no-store' });
       const json = await res.json();
+      if (revision !== selectionRevision) return;
       if (!res.ok) {
-        setError(json.error || `HTTP ${res.status}`);
-      } else {
-        updateFields(json);
+        throw new Error(json?.error || `Unable to measure this topic (HTTP ${res.status}).`);
       }
+      if (!json || json.topic !== topic || json.window !== sampleWindow ||
+          !Number.isFinite(json.frequency_hz) || json.frequency_hz < 0 ||
+          !Number.isFinite(json.bandwidth_bytes_per_second) || json.bandwidth_bytes_per_second < 0) {
+        throw new Error('The server returned an incomplete reading. Please try again.');
+      }
+      updateFields(json);
+      setState('Updated', 'success');
     } catch (e) {
-      setError(String(e));
+      if (revision === selectionRevision) {
+        clearFields();
+        stopAuto();
+        setError(e.message || 'Unable to reach the monitor. Please try again.');
+        setState('Unavailable', 'error');
+      }
     } finally {
+      inFlight = false;
       setLoading(false);
+      if (revision !== selectionRevision) {
+        setState(currentTopic ? 'Ready' : 'Select a topic');
+      } else if (auto) {
+        // ROS measurements take longer than three seconds. Never overlap requests.
+        setState('Auto on', 'success');
+        refreshTimer = setTimeout(measure, 3000);
+      }
     }
   }
 
   function setLoading(isLoading) {
-    if (isLoading) {
-      btn.disabled = true;
-      btn.classList.add('loading');
-      btn.innerHTML = '<span class="topic-spinner" aria-hidden="true"></span>Measuring';
-      result.setAttribute('aria-busy', 'true');
-    } else {
-      syncControls();
-      btn.classList.remove('loading');
-      btn.textContent = 'Measure';
-      result.removeAttribute('aria-busy');
-    }
+    btn.classList.toggle('loading', isLoading);
+    btnLabel.textContent = isLoading ? 'Measuring\u2026' : 'Measure';
+    result.setAttribute('aria-busy', String(isLoading));
+    syncControls();
   }
 
   function startAuto() {
-    if (intervalId) return;
-    if (!currentTopic) return;
-    intervalId = setInterval(measure, 3000);
+    if (auto || inFlight || !currentTopic || !form.reportValidity()) return;
     auto = true;
-    autoBtn.textContent = 'Stop';
+    syncControls();
+    measure();
   }
 
   function stopAuto() {
-    if (!intervalId) return;
-    clearInterval(intervalId);
-    intervalId = null;
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
     auto = false;
-    autoBtn.textContent = 'Auto';
+    syncControls();
+    if (!inFlight) {
+      setState(currentTopic ? hasReading ? 'Updated' : 'Ready' : 'Select a topic', hasReading ? 'success' : '');
+    }
   }
 
-  btn.addEventListener('click', measure);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (inFlight) return;
+    stopAuto();
+    measure();
+  });
   input.addEventListener('change', () => {
     currentTopic = input.value;
-    syncControls();
+    settingsChanged();
   });
+  windowInput.addEventListener('input', settingsChanged);
   autoBtn.addEventListener('click', (e) => {
     e.preventDefault();
     if (auto) stopAuto(); else startAuto();
@@ -144,6 +205,7 @@
   window.addEventListener('topics:selected', (event) => {
     syncTopicPicker(event.detail);
   });
+  window.addEventListener('pagehide', stopAuto);
 
   // Initialize: hide error
   setError('');

@@ -1,0 +1,71 @@
+/* Styles for the monitor only; the shared dashboard and topic-list styles remain in app.css. */
+#topic-monitor {
+  container-type: inline-size;
+  min-width: 0;
+  padding: 1.25rem;
+  background: #2e3237;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+#topic-monitor .topic-monitor-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+#topic-monitor .topic-monitor-help { margin: 0.35rem 0 0; color: #b8c1ca; font-size: 0.82rem; line-height: 1.5; }
+#topic-monitor .topic-monitor-state { padding: 0.2rem 0.6rem; border: 1px solid #697780; border-radius: 1rem; color: #d1dbe3; font-size: 0.75rem; }
+#topic-monitor .topic-monitor-state[data-state="loading"] { color: #bfdbfe; border-color: #516780; }
+#topic-monitor .topic-monitor-state[data-state="success"] { color: #a5e5cb; border-color: #527366; }
+#topic-monitor .topic-monitor-state[data-state="error"] { color: #ffb3b3; border-color: #925757; }
+
+#topic-monitor .topic-monitor-form { grid-template-columns: minmax(0, 1fr) 10rem; gap: 0.7rem 0.85rem; margin: 1rem 0 1.25rem; }
+#topic-monitor .topic-monitor-field { min-width: 0; }
+#topic-monitor .topic-monitor-field label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; font-weight: 600; }
+#topic-monitor .topic-monitor-field input,
+#topic-monitor .topic-monitor-field select { width: 100%; min-width: 0; background-color: #24272c; border-color: #65717d; color: #f2f2f2; color-scheme: dark; }
+#topic-monitor .topic-monitor-field select option { color: #f2f2f2; background: #24272c; }
+#topic-monitor .topic-monitor-field select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23d6dee5' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 16px 12px;
+}
+#topic-monitor .topic-monitor-field input:focus,
+#topic-monitor .topic-monitor-field select:focus { border-color: #9bdac9; box-shadow: 0 0 0 0.2rem rgba(155, 218, 201, 0.18); }
+#topic-monitor .topic-monitor-form > .topic-monitor-help,
+#topic-monitor .topic-monitor-actions { grid-column: 1 / -1; }
+#topic-monitor .topic-monitor-actions { flex-wrap: wrap; gap: 0.6rem; margin-top: 0.3rem; }
+#topic-monitor .topic-monitor-measure { background: #9bdac9; border-color: #9bdac9; color: #16342d; font-weight: 600; }
+#topic-monitor .topic-monitor-measure:hover,
+#topic-monitor .topic-monitor-measure:focus-visible { background: #b7e8dc; border-color: #b7e8dc; color: #16342d; }
+#topic-monitor .topic-monitor-measure:disabled { background: #9bdac9; border-color: #9bdac9; color: #16342d; opacity: 0.6; }
+#topic-monitor .btn-outline-secondary { color: #d6dee5; border-color: #78848f; }
+#topic-monitor .btn-outline-secondary:hover,
+#topic-monitor .btn-outline-secondary[aria-pressed="true"] { background: #46525a; color: #fff; border-color: #95a5b2; }
+#topic-monitor .btn:focus-visible { outline: 2px solid #b7e8dc; outline-offset: 3px; }
+#topic-monitor .topic-spinner { display: none; border-color: rgba(22, 52, 45, 0.2); border-top-color: #16342d; }
+#topic-monitor .loading .topic-spinner { display: inline-block; }
+
+#topic-monitor .topic-monitor-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; margin: 0; }
+#topic-monitor .topic-monitor-metric { min-width: 0; padding: 1rem; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 0.5rem; background: #262a2f; }
+#topic-monitor .topic-monitor-metric dt { color: #b8c1ca; font-size: 0.85rem; font-weight: 400; }
+#topic-monitor .topic-monitor-metric dd { margin: 0.45rem 0 0; font-size: 2rem; line-height: 1.2; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#topic-monitor .topic-monitor-unit { color: #b8c1ca; font-size: 0.85rem; white-space: nowrap; }
+#topic-monitor .topic-monitor-details { margin-top: 0.8rem; font-size: 0.82rem; }
+#topic-monitor .topic-monitor-row { overflow-wrap: anywhere; }
+#topic-monitor .topic-monitor-row strong { color: #b8c1ca; font-weight: 400; }
+#topic-monitor .topic-monitor-error { padding: 0.65rem 0.8rem; border: 1px solid rgba(255, 160, 160, 0.24); border-radius: 0.4rem; background: rgba(255, 110, 110, 0.07); overflow-wrap: anywhere; }
+#topic-monitor .topic-monitor-timing { margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+
+@container (max-width: 28rem) {
+  #topic-monitor .topic-monitor-form { grid-template-columns: minmax(0, 1fr); }
+  #topic-monitor .topic-monitor-metric { padding: 0.75rem; }
+  #topic-monitor .topic-monitor-metric dd { font-size: 1.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #topic-monitor .topic-spinner { animation: none; }
+}
