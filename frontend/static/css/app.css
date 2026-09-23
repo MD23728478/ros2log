@@ -260,3 +260,41 @@ body {
 	.topic-recording { grid-column: auto; }
 }
 
+.recording-status-block {
+	text-align: center;
+	padding: 1rem 0 1.25rem;
+}
+
+.recording-status-block .recording-state {
+	display: inline-block;
+	font-size: 0.9rem;
+	padding: 0.35rem 1rem;
+	margin-bottom: 1rem;
+}
+
+.btn-record-toggle {
+	padding: 0.85rem 2.25rem;
+	font-size: 1.05rem;
+	border-radius: 999px;
+	border: 1px solid rgba(255, 255, 255, 0.15);
+	background: rgba(255, 255, 255, 0.12);
+	color: #f2f2f2;
+	cursor: pointer;
+}
+
+.btn-record-toggle:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+	background: rgba(255, 255, 255, 0.04);
+}
+
+.btn-record-toggle.stop {
+	background: transparent;
+	border-color: rgba(255, 255, 255, 0.25);
+}
+
+.recording-controls {
+	display: flex;
+	justify-content: center;
+	gap: 0.5rem;
+}
