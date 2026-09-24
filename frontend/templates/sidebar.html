@@ -2,9 +2,9 @@
   <div class="app-sidebar-title">Navigation</div>
 
   <nav class="app-sidebar-nav" aria-label="Navigation">
-    <a class="app-sidebar-link active" href="#">Dashboard</a>
-    <a class="app-sidebar-link" href="#">Topics</a>
-    <a class="app-sidebar-link" href="#">Recordings</a>
+    <a class="app-sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('pages.index') }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+    <a class="app-sidebar-link{% if active_page == 'topics' %} active{% endif %}" href="{{ url_for('pages.topics_page') }}"{% if active_page == 'topics' %} aria-current="page"{% endif %}>Topics</a>
+    <a class="app-sidebar-link{% if active_page == 'recordings' %} active{% endif %}" href="{{ url_for('pages.recordings_page') }}"{% if active_page == 'recordings' %} aria-current="page"{% endif %}>Recordings</a>
     <a class="app-sidebar-link" href="#">Settings</a>
   </nav>
 </aside>

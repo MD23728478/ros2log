@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Topics{% endblock %}
+
+{% block content %}
+  {% include "header.html" %}
+
+  <div class="app-dashboard">
+    {% include "sidebar.html" %}
+
+    <main class="app-dashboard-main">
+      <h1 class="app-dashboard-title">Topics</h1>
+      <div class="topics-page-tools">
+        {% include "topic_list.html" %}
+      </div>
+      <script src="{{ url_for('static', filename='js/topic-list.js') }}"></script>
+    </main>
+  </div>
+{% endblock %}
