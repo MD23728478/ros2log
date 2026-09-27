@@ -2,6 +2,7 @@
   const topic = document.getElementById('recording-topic');
   const state = document.getElementById('recording-state');
   const output = document.getElementById('recording-output');
+  const prefix = document.getElementById('recording-prefix');
   const start = document.getElementById('recording-start');
   const stop = document.getElementById('recording-stop');
   const error = document.getElementById('recording-error');
@@ -33,6 +34,7 @@
     state.textContent = current[0].toUpperCase() + current.slice(1);
     start.disabled = current === 'running' || !selectedTopics.length;
     stop.disabled = current !== 'running';
+    prefix.disabled = current === 'running' || current === 'stopping';
     syncTopic();
 
     if (current === 'running' && !pollId) {
@@ -77,11 +79,12 @@
   async function startRecording() {
     showError();
     start.disabled = true;
+    prefix.disabled = true;
     try {
       render(await request('/api/record/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topics: selectedTopics }),
+        body: JSON.stringify({ topics: selectedTopics, prefix: prefix.value.trim() }),
       }));
     } catch (failure) {
       showError(failure.message);
