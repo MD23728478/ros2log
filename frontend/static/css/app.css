@@ -229,18 +229,20 @@ body {
 .topic-recording-actions { display: flex; gap: 0.5rem; margin: 0.75rem 0; }
 .topic-recording-error { display: none; margin-top: 0.5rem; }
 
-.topic-monitor-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; margin-bottom: 0.75rem; }
-.topic-monitor-form label { grid-column: 1 / -1; }
-.topic-monitor-form select { min-width: 0; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); color: #f2f2f2; }
+.topic-monitor-form { display: grid; grid-template-columns: minmax(0, 1fr) 10rem; gap: 0.5rem; margin-bottom: 0.75rem; }
+.topic-monitor-field { min-width: 0; }
+.topic-monitor-field label { display: block; margin-bottom: 0.25rem; }
+.topic-monitor-field input,
+.topic-monitor-field select { min-width: 0; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); color: #f2f2f2; }
 .topic-monitor-form select option { color: #2a2a2a; }
-.topic-monitor-actions { display: flex; gap: 0.5rem; }
+.topic-monitor-actions { display: flex; grid-column: 1 / -1; gap: 0.5rem; }
 
 .topic-monitor-row { padding: 0.25rem 0; color: rgba(242,242,242,0.92); }
 .topic-monitor-error { color: #ffb3b3; margin-top: 0.5rem; display: none; }
 
 /* inline spinner used by Measure button */
 .topic-spinner {
-	display: inline-block;
+	display: none;
 	width: 0.9rem;
 	height: 0.9rem;
 	border: 2px solid rgba(255,255,255,0.18);
@@ -250,6 +252,7 @@ body {
 	vertical-align: middle;
 	animation: topic-spin 0.75s linear infinite;
 }
+.loading .topic-spinner { display: inline-block; }
 @keyframes topic-spin { to { transform: rotate(360deg); } }
 
 .btn.loading { opacity: 0.95; }
@@ -258,6 +261,7 @@ body {
 	.dashboard-tools { grid-template-columns: 1fr; }
 	.topic-list { grid-row: auto; }
 	.topic-recording { grid-column: auto; }
+	.topic-monitor-form { grid-template-columns: 1fr; }
 }
 
 .recording-status-block {

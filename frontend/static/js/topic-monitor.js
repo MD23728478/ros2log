@@ -2,43 +2,24 @@
   const $ = (id) => document.getElementById(id);
   const form = $('topic-monitor-form');
   const input = $('topic-monitor-input');
+  const topicHelp = $('topic-monitor-topic-help');
   const windowInput = $('topic-monitor-window');
   const btn = $('topic-monitor-btn');
   const btnLabel = $('topic-monitor-btn-label');
   const autoBtn = $('topic-monitor-auto');
   const result = $('topic-monitor-result');
   const err = $('topic-monitor-error');
-  const selectedCount = $('topic-monitor-selected-count');
-  const state = $('topic-monitor-state');
 
   let auto = false;
   let refreshTimer = null;
   let inFlight = false;
   let selectionRevision = 0;
-  let hasReading = false;
   let selectedTopics = [];
   let currentTopic = '';
-
-  function setState(text, kind = '') {
-    state.textContent = text;
-    state.dataset.state = kind;
-  }
 
   function setError(message) {
     err.textContent = message || '';
     err.style.display = message ? 'block' : 'none';
-  }
-
-  function setSelectedCount() {
-    if (!selectedTopics.length) {
-      selectedCount.textContent = 'Select topics in the list.';
-      return;
-    }
-    if (selectedTopics.length === 1) {
-      selectedCount.textContent = '1 topic selected.';
-      return;
-    }
-    selectedCount.textContent = `${selectedTopics.length} topics selected.`;
   }
 
   function rebuildTopicOptions() {
@@ -67,7 +48,7 @@
   function syncTopicPicker(topics = []) {
     const previousTopic = currentTopic;
     selectedTopics = Array.isArray(topics) ? topics : [];
-    setSelectedCount();
+    topicHelp.hidden = selectedTopics.length > 0;
     rebuildTopicOptions();
     // Searching the list or checking another topic must not reset this reading.
     if (currentTopic !== previousTopic) {
@@ -87,8 +68,7 @@
   }
 
   function clearFields() {
-    hasReading = false;
-    ['tm-source', 'tm-topic', 'tm-frequency', 'tm-bandwidth', 'tm-window'].forEach((id) => {
+    ['tm-frequency', 'tm-bandwidth'].forEach((id) => {
       $(id).textContent = '\u2014';
     });
   }
@@ -98,17 +78,12 @@
     stopAuto();
     clearFields();
     setError('');
-    setState(!currentTopic ? 'Select a topic' : inFlight ? 'Finishing previous reading\u2026' : 'Ready');
     syncControls();
   }
 
   function updateFields(data) {
-    $('tm-source').textContent = data.source || '—';
-    $('tm-topic').textContent = data.topic || '—';
     $('tm-frequency').textContent = data.frequency_hz != null ? data.frequency_hz.toFixed(2) : '—';
     $('tm-bandwidth').textContent = data.bandwidth_bytes_per_second != null ? Math.round(data.bandwidth_bytes_per_second) : '—';
-    $('tm-window').textContent = `${data.window.toLocaleString()} messages`;
-    hasReading = true;
   }
 
   async function measure() {
@@ -125,7 +100,6 @@
     const revision = selectionRevision;
     inFlight = true;
     setLoading(true);
-    setState('Measuring\u2026', 'loading');
     try {
       const query = new URLSearchParams({ topic, window: String(sampleWindow) });
       const url = `/api/topic-monitor?${query}`;
@@ -141,22 +115,17 @@
         throw new Error('The server returned an incomplete reading. Please try again.');
       }
       updateFields(json);
-      setState('Updated', 'success');
     } catch (e) {
       if (revision === selectionRevision) {
         clearFields();
         stopAuto();
         setError(e.message || 'Unable to reach the monitor. Please try again.');
-        setState('Unavailable', 'error');
       }
     } finally {
       inFlight = false;
       setLoading(false);
-      if (revision !== selectionRevision) {
-        setState(currentTopic ? 'Ready' : 'Select a topic');
-      } else if (auto) {
+      if (revision === selectionRevision && auto) {
         // ROS measurements take longer than three seconds. Never overlap requests.
-        setState('Auto on', 'success');
         refreshTimer = setTimeout(measure, 3000);
       }
     }
@@ -181,9 +150,6 @@
     refreshTimer = null;
     auto = false;
     syncControls();
-    if (!inFlight) {
-      setState(currentTopic ? hasReading ? 'Updated' : 'Ready' : 'Select a topic', hasReading ? 'success' : '');
-    }
   }
 
   form.addEventListener('submit', (event) => {
@@ -206,6 +172,11 @@
     syncTopicPicker(event.detail);
   });
   window.addEventListener('pagehide', stopAuto);
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.bootstrap?.Tooltip) {
+      new window.bootstrap.Tooltip(topicHelp);
+    }
+  });
 
   // Initialize: hide error
   setError('');

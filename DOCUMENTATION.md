@@ -183,9 +183,9 @@ and reading. Removing the active topic switches to the first remaining selection
 and clears its old reading; removing every selection disables the monitor.
 
 The dashboard provides separate frequency/bandwidth readings and loading/error
-states, styled in `frontend/static/css/topic-monitor.css`. Auto starts a reading
-immediately, then waits three seconds after each request finishes before starting
-the next one. Stopping
+states using the shared dashboard styles in `frontend/static/css/app.css`. Auto
+starts a reading immediately, then waits three seconds after each request finishes
+before starting the next one. Stopping
 Auto lets the current request finish but schedules no further readings.
 Changing the topic or window stops Auto and clears the old result. Any pending
 response for the previous settings is ignored; a new request can start when
