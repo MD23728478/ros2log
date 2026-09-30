@@ -17,6 +17,7 @@ from runner.client import (
 TOPIC_NAME_PATTERN = re.compile(
     r"/[A-Za-z_][A-Za-z0-9_]*(?:/[A-Za-z_][A-Za-z0-9_]*)*"
 )
+PREFIX_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,31}")
 
 
 def _complete_latest_recording(status):
@@ -40,15 +41,30 @@ def _complete_latest_recording(status):
 @blueprint.post("/record/start")
 def record_start():
     body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify(error="Provide a JSON object."), 400
+
     topics = body.get("topics")
+    prefix = body.get("prefix", "")
 
     if not isinstance(topics, list) or not topics or not all(
         isinstance(topic, str) and TOPIC_NAME_PATTERN.fullmatch(topic) for topic in topics
     ):
         return jsonify(error="Provide a non-empty list of valid topic names."), 400
 
+    if not isinstance(prefix, str):
+        return jsonify(error="Prefix must be a string."), 400
+    prefix = prefix.strip()
+    if prefix and not PREFIX_PATTERN.fullmatch(prefix):
+        return jsonify(
+            error="Prefix must contain 1-32 letters, numbers, hyphens, or underscores."
+        ), 400
+
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    output_path = f"/storage/recording-{timestamp}"
+    recording_name = f"recording-{timestamp}"
+    if prefix:
+        recording_name = f"{prefix}-{recording_name}"
+    output_path = f"/storage/{recording_name}"
     database = get_database()
     database.execute(
         "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",

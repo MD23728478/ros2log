@@ -146,13 +146,15 @@ body {
 	margin-bottom: 0.75rem;
 }
 
-.topic-list-search input {
+.topic-list-search input,
+.recording-prefix input {
 	background: rgba(255,255,255,0.03);
 	border-color: rgba(255,255,255,0.08);
 	color: #f2f2f2;
 }
 
-.topic-list-search input::placeholder {
+.topic-list-search input::placeholder,
+.recording-prefix input::placeholder {
 	color: rgba(242,242,242,0.45);
 }
 .topic-monitor-header {
@@ -270,6 +272,19 @@ body {
 	font-size: 0.9rem;
 	padding: 0.35rem 1rem;
 	margin-bottom: 1rem;
+}
+
+.recording-prefix {
+	align-items: center;
+}
+
+.recording-prefix label {
+	flex: 0 0 auto;
+}
+
+.recording-prefix input {
+	flex: 1 1 auto;
+	min-width: 0;
 }
 
 .btn-record-toggle {
