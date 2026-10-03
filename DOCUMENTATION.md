@@ -66,6 +66,29 @@ def customers():
     return jsonify(customers=[])
 ```
 
+### Recording metadata API
+
+`GET /api/recordings/<recording_id>/metadata` returns parsed ROS 2 bag
+information for a completed recording. The integer ID is the existing
+`recordings.id` primary key created when `/api/record/start` inserts the
+recording. The recordings page uses this same ID for its rename and delete
+requests; it is not a filename supplied by the browser.
+
+The endpoint looks up the recording's `/storage/...` path in the database and
+reads its `metadata.yaml`. It never accepts a filesystem path. Metadata schema
+versions 4 through 9 are supported. The response groups the common fields in
+`summary`, topic and split-bag information in `topics` and `files`, and ROS
+diagnostics such as QoS profiles, type hashes, custom data, and schema version
+under `advanced` fields. Exact nanosecond values are JSON strings so browser
+clients do not lose integer precision.
+
+Recordings that were copied into `/storage` without a corresponding database
+row do not have a recording ID and cannot be queried through this endpoint.
+
+Errors use the usual `{"error": "..."}` response: `404` for a missing database
+row, directory, or metadata file; `409` while a recording is active; `422` for
+invalid or unsupported metadata; and `500` for an unexpected read failure.
+
 ## Run a ROS 2 command
 
 Routes may use the generic synchronous command helper:
