@@ -17,10 +17,10 @@ def test_pages_and_api():
     page = client.get("/")
     assert page.status_code == 200
     assert b"Dashboard" in page.data
+    assert b"Available topics" in page.data or b"Search topics" in page.data
 
     topics = client.get("/topics")
-    assert topics.status_code == 200
-    assert b"Topics" in topics.data
+    assert topics.status_code == 404
 
     recordings = client.get("/recordings")
     assert recordings.status_code == 200

@@ -39,12 +39,26 @@
       const nextName = window.prompt('Rename recording', name);
       closeMenus();
       if (!nextName || !nextName.trim() || nextName.trim() === name) return;
+
+      const trimmedName = nextName.trim();
+      const nameElement = row.querySelector('.recording-name');
+      const button = row.querySelector('.recording-manage-button');
+
       try {
-        await request(`/api/recordings/${id}/rename`, {
+        const result = await request(`/api/recordings/${id}/rename`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: nextName.trim() }),
+          body: JSON.stringify({ name: trimmedName }),
         });
+
+        row.dataset.recordingName = result.name;
+        if (nameElement) {
+          nameElement.textContent = result.name;
+        }
+        if (button) {
+          button.setAttribute('aria-label', `Manage ${result.name}`);
+        }
+
         window.location.reload();
       } catch (error) {
         window.alert(error.message);

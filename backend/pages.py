@@ -92,11 +92,6 @@ def index():
     return _render_page("index.html", active_page="dashboard", title="Dashboard")
 
 
-@blueprint.get("/topics")
-def topics_page():
-    return _render_page("topics.html", active_page="topics", title="Topics")
-
-
 @blueprint.get("/recordings")
 def recordings_page():
     return _render_page(
