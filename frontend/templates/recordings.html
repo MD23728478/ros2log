@@ -48,6 +48,7 @@
                     <div class="recording-manage-wrap">
                       <button class="recording-manage-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Manage {{ recording.display_name }}">⋯</button>
                       <div class="recording-manage-menu" role="menu" hidden>
+                        <button class="recording-manage-option" type="button" data-action="metadata" role="menuitem">View metadata</button>
                         <button class="recording-manage-option" type="button" data-action="rename" role="menuitem">Rename</button>
                         <button class="recording-manage-option danger" type="button" data-action="delete" role="menuitem">Delete</button>
                       </div>
@@ -63,6 +64,18 @@
           </table>
         </div>
       </section>
+
+      <dialog id="recording-metadata-dialog" class="recording-metadata-dialog" aria-labelledby="recording-metadata-title">
+        <header class="recording-metadata-header">
+          <div>
+            <h2 id="recording-metadata-title">Recording metadata</h2>
+            <p id="recording-metadata-name"></p>
+          </div>
+          <button class="recording-metadata-close" type="button" aria-label="Close metadata">&times;</button>
+        </header>
+        <p id="recording-metadata-status" class="recording-metadata-status" role="status" aria-live="polite"></p>
+        <div id="recording-metadata-content" class="recording-metadata-content" hidden></div>
+      </dialog>
 
       <script src="{{ url_for('static', filename='js/recordings.js') }}"></script>
     </main>

@@ -1,6 +1,15 @@
 (() => {
   const rows = Array.from(document.querySelectorAll('.recording-row'));
-  if (!rows.length) return;
+  const dialog = document.getElementById('recording-metadata-dialog');
+  const metadataName = document.getElementById('recording-metadata-name');
+  const metadataStatus = document.getElementById('recording-metadata-status');
+  const metadataContent = document.getElementById('recording-metadata-content');
+
+  function closeMetadata() {
+    if (dialog.open) dialog.close();
+  }
+
+  dialog?.querySelector('.recording-metadata-close').addEventListener('click', closeMetadata);
 
   function closeMenus(exceptRow = null) {
     rows.forEach((row) => {
@@ -19,6 +28,129 @@
       throw new Error(data.error || `HTTP ${response.status}`);
     }
     return data;
+  }
+
+  function appendText(parent, tagName, text, className = '') {
+    const element = document.createElement(tagName);
+    if (className) element.className = className;
+    element.textContent = text == null || text === '' ? '—' : String(text);
+    parent.append(element);
+    return element;
+  }
+
+  function appendTable(parent, title, headings, values, emptyMessage) {
+    const section = document.createElement('section');
+    section.className = 'recording-metadata-section';
+    appendText(section, 'h3', title);
+    const wrap = document.createElement('div');
+    wrap.className = 'recording-metadata-table-wrap';
+    const table = document.createElement('table');
+    table.className = 'recording-metadata-table';
+    const head = table.createTHead().insertRow();
+    headings.forEach((heading) => appendText(head, 'th', heading));
+    const body = table.createTBody();
+
+    if (!values.length) {
+      const cell = appendText(body.insertRow(), 'td', emptyMessage);
+      cell.colSpan = headings.length;
+      cell.className = 'recordings-table-empty';
+    } else {
+      values.forEach((valuesRow) => {
+        const row = body.insertRow();
+        valuesRow.forEach((value) => appendText(row, 'td', value));
+      });
+    }
+
+    wrap.append(table);
+    section.append(wrap);
+    parent.append(section);
+  }
+
+  function renderMetadata(data) {
+    metadataContent.replaceChildren();
+    const summary = data.summary || {};
+    const duration = summary.duration && summary.duration.seconds != null
+      ? `${Number(summary.duration.seconds).toFixed(2)} s`
+      : '—';
+    const compression = summary.compression
+      ? [summary.compression.mode, summary.compression.format].filter(Boolean).join(' / ') || 'None'
+      : '—';
+    const summarySection = document.createElement('section');
+    summarySection.className = 'recording-metadata-section';
+    appendText(summarySection, 'h3', 'Summary');
+    const summaryList = document.createElement('dl');
+    summaryList.className = 'recording-metadata-summary';
+    [
+      ['Started', summary.started_at],
+      ['Duration', duration],
+      ['Messages', summary.message_count],
+      ['Topics', summary.topic_count],
+      ['ROS distribution', summary.ros_distro],
+      ['Storage', summary.storage_identifier],
+      ['Compression', compression],
+    ].forEach(([label, value]) => {
+      const item = document.createElement('div');
+      item.className = 'recording-metadata-stat';
+      appendText(item, 'dt', label);
+      appendText(item, 'dd', value);
+      summaryList.append(item);
+    });
+    summarySection.append(summaryList);
+    metadataContent.append(summarySection);
+
+    const topics = Array.isArray(data.topics) ? data.topics : [];
+    appendTable(
+      metadataContent,
+      'Topics',
+      ['Topic', 'Message type', 'Messages'],
+      topics.map((topic) => [topic.name, topic.type, topic.message_count]),
+      'No topic information is available.'
+    );
+
+    const files = Array.isArray(data.files) ? data.files : [];
+    appendTable(
+      metadataContent,
+      'Bag files',
+      ['File', 'Started', 'Duration', 'Messages'],
+      files.map((file) => [
+        file.path,
+        file.started_at,
+        file.duration && file.duration.seconds != null
+          ? `${Number(file.duration.seconds).toFixed(2)} s`
+          : null,
+        file.message_count,
+      ]),
+      'No bag file details are available.'
+    );
+
+    const advanced = document.createElement('details');
+    advanced.className = 'recording-metadata-advanced';
+    appendText(advanced, 'summary', 'Advanced metadata');
+    const pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(data.advanced || {}, null, 2);
+    advanced.append(pre);
+    metadataContent.append(advanced);
+    metadataStatus.textContent = '';
+    metadataStatus.hidden = true;
+    metadataContent.hidden = false;
+  }
+
+  async function openMetadata(id, name) {
+    metadataName.textContent = name;
+    metadataContent.hidden = true;
+    metadataContent.replaceChildren();
+    metadataStatus.textContent = 'Loading metadata…';
+    metadataStatus.hidden = false;
+    metadataStatus.classList.remove('error');
+    dialog.showModal();
+
+    try {
+      const data = await request(`/api/recordings/${id}/metadata`);
+      renderMetadata(data);
+    } catch (error) {
+      metadataStatus.textContent = error.message;
+      metadataStatus.classList.add('error');
+    }
   }
 
   rows.forEach((row) => {
@@ -63,6 +195,11 @@
       } catch (error) {
         window.alert(error.message);
       }
+    });
+
+    menu.querySelector('[data-action="metadata"]').addEventListener('click', () => {
+      closeMenus();
+      openMetadata(id, name);
     });
 
     menu.querySelector('[data-action="delete"]').addEventListener('click', async () => {
