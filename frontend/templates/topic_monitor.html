@@ -1,31 +1,42 @@
-<section id="topic-monitor" class="topic-monitor">
+<section id="topic-monitor" class="topic-monitor" aria-labelledby="topic-monitor-title">
   <header class="topic-monitor-header">
-    <h2 class="topic-monitor-title">Topic Monitor</h2>
+    <h2 id="topic-monitor-title" class="topic-monitor-title">Monitor</h2>
   </header>
 
-  <div class="topic-monitor-row">
-    <strong>Available topics:</strong>
-    <span id="topic-monitor-selected-count">Select topics in the list.</span>
-  </div>
-
-  <form id="topic-monitor-form" class="topic-monitor-form" onsubmit="return false;">
-    <label for="topic-monitor-input">Measure topic</label>
-    <select id="topic-monitor-input" class="form-select">
-      <option value="">Select a topic from the list</option>
-    </select>
+  <form id="topic-monitor-form" class="topic-monitor-form">
+    <div class="topic-monitor-field">
+      <label for="topic-monitor-input">
+        Topic
+        <span id="topic-monitor-topic-help" class="text-secondary" tabindex="0"
+              title="Select at least one topic from the Topics list to use this dropdown."
+              data-bs-toggle="tooltip" aria-label="Select at least one topic from the Topics list to use this dropdown.">ⓘ</span>
+      </label>
+      <select id="topic-monitor-input" class="form-select" required>
+        <option value="">Select a topic from the list</option>
+      </select>
+    </div>
+    <div class="topic-monitor-field">
+      <label for="topic-monitor-window">Window (messages)</label>
+      <input id="topic-monitor-window" class="form-control" type="number" step="1" required
+             min="{{ config.TOPIC_MONITOR_WINDOW.min }}"
+             max="{{ config.TOPIC_MONITOR_WINDOW.max }}"
+             value="{{ config.TOPIC_MONITOR_WINDOW.default }}">
+    </div>
     <div class="topic-monitor-actions">
-      <button id="topic-monitor-btn" class="btn btn-secondary">Measure</button>
-      <button id="topic-monitor-auto" class="btn btn-outline-secondary">Auto</button>
+      <button id="topic-monitor-btn" class="btn btn-secondary" type="submit">
+        <span class="topic-spinner" aria-hidden="true"></span>
+        <span id="topic-monitor-btn-label">Measure</span>
+      </button>
+      <button id="topic-monitor-auto" class="btn btn-outline-secondary" type="button"
+              aria-pressed="false">Auto</button>
     </div>
   </form>
 
-  <div id="topic-monitor-result" class="topic-monitor-result" aria-live="polite">
-    <div class="topic-monitor-row"><strong>Source:</strong> <span id="tm-source">—</span></div>
-    <div class="topic-monitor-row"><strong>Topic:</strong> <span id="tm-topic">—</span></div>
-    <div class="topic-monitor-row"><strong>Frequency (Hz):</strong> <span id="tm-frequency">—</span></div>
-    <div class="topic-monitor-row"><strong>Bandwidth (B/s):</strong> <span id="tm-bandwidth">—</span></div>
-    <div id="topic-monitor-error" class="topic-monitor-error"></div>
+  <div id="topic-monitor-result" class="topic-monitor-result" aria-live="polite" aria-busy="false">
+    <div class="topic-monitor-row"><strong>Frequency:</strong> <span id="tm-frequency">—</span> Hz</div>
+    <div class="topic-monitor-row"><strong>Bandwidth:</strong> <span id="tm-bandwidth">—</span> B/s</div>
   </div>
+  <div id="topic-monitor-error" class="topic-monitor-error" role="alert"></div>
 </section>
 
 <script src="{{ url_for('static', filename='js/topic-monitor.js') }}"></script>

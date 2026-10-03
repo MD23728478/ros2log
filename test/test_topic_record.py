@@ -86,6 +86,60 @@ def test_start_recording_returns_output_path_and_state(client, start_command, to
     )
 
 
+def test_start_recording_uses_prefix_in_output_path(app, client, start_command):
+    start_command.return_value = background_result(state="running")
+    topics = ["/ros2log/test/temperature"]
+
+    response = client.post(
+        "/api/record/start", json={"topics": topics, "prefix": "  Sprint_3  "}
+    )
+
+    assert response.status_code == 201
+    output_path = response.get_json()["output"]
+    assert output_path.startswith("/storage/Sprint_3-recording-")
+    start_command.assert_called_once_with(
+        "bag",
+        "record",
+        "--output",
+        output_path,
+        "--topics",
+        *topics,
+        timeout_seconds=3600,
+    )
+    with app.app_context():
+        saved_path = get_database().execute(
+            "SELECT output_path FROM recordings"
+        ).fetchone()["output_path"]
+    assert saved_path == output_path
+
+
+@pytest.mark.parametrize("prefix", ["", "   "])
+def test_blank_prefix_keeps_default_name(client, start_command, prefix):
+    start_command.return_value = background_result(state="running")
+
+    response = client.post(
+        "/api/record/start",
+        json={"topics": ["/ros2log/test/temperature"], "prefix": prefix},
+    )
+
+    assert response.status_code == 201
+    assert response.get_json()["output"].startswith("/storage/recording-")
+
+
+@pytest.mark.parametrize(
+    "prefix", ["../escape", "has space", "bad.name", "x" * 33, 123, None, ["test"]]
+)
+def test_invalid_prefix_does_not_start_recording(client, start_command, prefix):
+    response = client.post(
+        "/api/record/start",
+        json={"topics": ["/ros2log/test/temperature"], "prefix": prefix},
+    )
+
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+    start_command.assert_not_called()
+
+
 def test_start_recording_persists_started_record(app, client, start_command):
     topics = ["/ros2log/test/temperature", "/ros2log/test/battery"]
     start_command.return_value = background_result(state="running")
