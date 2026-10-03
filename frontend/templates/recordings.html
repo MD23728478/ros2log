@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Recordings{% endblock %}
+
+{% block content %}
+  {% include "header.html" %}
+
+  <div class="app-dashboard">
+    {% include "sidebar.html" %}
+
+    <main class="app-dashboard-main">
+      <h1 class="app-dashboard-title">Recordings</h1>
+
+      <section class="recordings-page-panel" aria-labelledby="recordings-page-title">
+        <header class="recordings-page-header">
+          <h2 id="recordings-page-title" class="recordings-page-title">Saved recordings</h2>
+          <p class="recordings-page-summary">All recordings currently stored by the application.</p>
+        </header>
+
+        <div class="recordings-table-wrap">
+          <table class="recordings-table">
+            <thead>
+              <tr>
+                <th class="recordings-table-select" scope="col">
+                  <span class="visually-hidden">Select all</span>
+                  <input type="checkbox" disabled aria-hidden="true">
+                </th>
+                <th scope="col">Name</th>
+                <th scope="col">Date Created</th>
+                <th scope="col">Size</th>
+                <th class="recordings-table-manage" scope="col">Manage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for recording in recordings %}
+                <tr class="recording-row" data-recording-id="{{ recording.id }}" data-recording-name="{{ recording.display_name }}">
+                  <td class="recordings-table-select">
+                    <input type="checkbox" disabled aria-hidden="true">
+                  </td>
+                  <td>
+                    <div class="recording-name">{{ recording.display_name }}</div>
+                    <div class="recording-path">{{ recording.output_path }}</div>
+                    <div class="recording-topics">Topics recorded: {{ recording.topic_summary }}</div>
+                  </td>
+                  <td>{{ recording.started_at }}</td>
+                  <td>{{ recording.size }}</td>
+                  <td class="recordings-table-manage">
+                    <div class="recording-manage-wrap">
+                      <button class="recording-manage-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Manage {{ recording.display_name }}">⋯</button>
+                      <div class="recording-manage-menu" role="menu" hidden>
+                        <button class="recording-manage-option" type="button" data-action="rename" role="menuitem">Rename</button>
+                        <button class="recording-manage-option danger" type="button" data-action="delete" role="menuitem">Delete</button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td class="recordings-table-empty" colspan="5">No recordings have been saved yet.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <script src="{{ url_for('static', filename='js/recordings.js') }}"></script>
+    </main>
+  </div>
+{% endblock %}
