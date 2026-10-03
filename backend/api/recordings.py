@@ -8,12 +8,11 @@ from backend.api import blueprint
 from backend.database import get_database
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 RECORDING_NAME_PATTERN = re.compile(r"^[^/\\\0]+$")
 
 
 def _recording_path(output_path):
-    return PROJECT_ROOT / output_path.lstrip("/")
+    return Path(output_path)
 
 
 def _load_recording(recording_id):
@@ -45,13 +44,16 @@ def rename_recording(recording_id):
 
     current_path = _recording_path(row["output_path"])
     target_path = current_path.with_name(new_name)
-    target_output_path = f"/storage/{new_name}"
+    target_output_path = str(target_path)
+
+    if not current_path.exists():
+        return _json_error("The recording folder was not found.", 404)
 
     if target_path.exists() and target_path != current_path:
         return _json_error("A recording with that name already exists.", 409)
 
     try:
-        if current_path.exists() and current_path != target_path:
+        if current_path != target_path:
             current_path.rename(target_path)
     except OSError:
         return _json_error("Could not rename the recording folder.", 502)

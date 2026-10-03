@@ -8,8 +8,6 @@ from backend.database import get_database
 
 blueprint = Blueprint("pages", __name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-
 
 def _render_page(template, *, active_page, title, **context):
     return render_template(
@@ -21,7 +19,7 @@ def _render_page(template, *, active_page, title, **context):
 
 
 def _recording_filesize(output_path):
-    recording_path = PROJECT_ROOT / output_path.lstrip("/")
+    recording_path = Path(output_path)
     if not recording_path.exists():
         return None
 

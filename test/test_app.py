@@ -70,9 +70,10 @@ def test_rename_and_delete_recordings(monkeypatch):
 
     recording_name = f"recording-{uuid4().hex}"
     renamed_name = f"{recording_name}-renamed"
-    project_root = Path(__file__).resolve().parent.parent
-    recording_path = project_root / "storage" / recording_name
-    renamed_path = project_root / "storage" / renamed_name
+    storage_root = Path("/storage")
+    storage_root.mkdir(parents=True, exist_ok=True)
+    recording_path = storage_root / recording_name
+    renamed_path = storage_root / renamed_name
 
     shutil.rmtree(recording_path, ignore_errors=True)
     shutil.rmtree(renamed_path, ignore_errors=True)
@@ -101,7 +102,15 @@ def test_rename_and_delete_recordings(monkeypatch):
                 "SELECT output_path FROM recordings WHERE id = ?",
                 (recording_id,),
             ).fetchone()
-        assert row["output_path"] == f"/storage/{renamed_name}"
+        assert row["output_path"] == str(renamed_path)
+
+        shutil.rmtree(renamed_path, ignore_errors=True)
+        missing_dir_response = client.post(
+            f"/api/recordings/{recording_id}/rename",
+            json={"name": f"{renamed_name}-missing"},
+        )
+        assert missing_dir_response.status_code == 404
+        assert missing_dir_response.get_json()["error"] == "The recording folder was not found."
 
         delete_response = client.post(f"/api/recordings/{recording_id}/delete")
         assert delete_response.status_code == 200
