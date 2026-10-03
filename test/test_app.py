@@ -58,6 +58,8 @@ def test_recordings_page_lists_saved_recordings(monkeypatch):
     assert b"Manage" in response.data
     assert b"Rename" in response.data
     assert b"Delete" in response.data
+    assert b"View metadata" in response.data
+    assert b"recording-metadata-dialog" in response.data
     assert b"recording-manage-button" in response.data
 
 

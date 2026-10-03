@@ -399,6 +399,139 @@ body {
 	color: rgba(242, 242, 242, 0.72);
 }
 
+.recording-metadata-dialog {
+	width: min(58rem, calc(100% - 2rem));
+	max-height: min(86vh, 54rem);
+	padding: 1.25rem;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 0.6rem;
+	background: #2a2a2a;
+	color: #f2f2f2;
+	overflow: auto;
+}
+
+.recording-metadata-dialog::backdrop {
+	background: rgba(0, 0, 0, 0.72);
+}
+
+.recording-metadata-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 1rem;
+}
+
+.recording-metadata-header h2,
+.recording-metadata-section h3 {
+	margin: 0;
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+.recording-metadata-header p {
+	margin: 0.3rem 0 0;
+	color: rgba(242, 242, 242, 0.62);
+	overflow-wrap: anywhere;
+}
+
+.recording-metadata-close {
+	width: 2rem;
+	height: 2rem;
+	flex: 0 0 auto;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 50%;
+	background: transparent;
+	color: #f2f2f2;
+	font-size: 1.25rem;
+	cursor: pointer;
+}
+
+.recording-metadata-status {
+	margin: 1rem 0;
+	color: rgba(242, 242, 242, 0.72);
+}
+
+.recording-metadata-status.error {
+	color: #ffb3b3;
+}
+
+.recording-metadata-section {
+	margin-top: 1.25rem;
+}
+
+.recording-metadata-summary {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+	gap: 0.6rem;
+	margin: 0.7rem 0 0;
+}
+
+.recording-metadata-stat {
+	min-width: 0;
+	padding: 0.75rem;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 0.4rem;
+	background: rgba(255, 255, 255, 0.025);
+}
+
+.recording-metadata-stat dt {
+	color: rgba(242, 242, 242, 0.62);
+	font-size: 0.82rem;
+}
+
+.recording-metadata-stat dd {
+	margin: 0.3rem 0 0;
+	overflow-wrap: anywhere;
+}
+
+.recording-metadata-table-wrap {
+	margin-top: 0.7rem;
+	overflow-x: auto;
+}
+
+.recording-metadata-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9rem;
+}
+
+.recording-metadata-table th,
+.recording-metadata-table td {
+	padding: 0.65rem 0.75rem;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+	text-align: left;
+	vertical-align: top;
+	overflow-wrap: anywhere;
+}
+
+.recording-metadata-table th {
+	color: rgba(242, 242, 242, 0.68);
+	font-weight: 500;
+}
+
+.recording-metadata-advanced {
+	margin-top: 1.25rem;
+	padding-top: 0.8rem;
+	border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.recording-metadata-advanced summary {
+	cursor: pointer;
+}
+
+.recording-metadata-advanced pre {
+	max-height: 18rem;
+	margin: 0.7rem 0 0;
+	padding: 0.8rem;
+	border-radius: 0.4rem;
+	background: rgba(0, 0, 0, 0.2);
+	color: rgba(242, 242, 242, 0.82);
+	font-size: 0.8rem;
+	overflow: auto;
+	white-space: pre-wrap;
+}
+
 /* inline spinner used by Measure button */
 .topic-spinner {
 	display: none;
