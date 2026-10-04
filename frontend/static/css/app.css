@@ -357,16 +357,19 @@ body {
 }
 
 .recording-manage-menu {
-	position: absolute;
-	top: calc(100% + 0.35rem);
-	right: 0;
-	z-index: 20;
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 1000;
 	min-width: 8rem;
+	max-width: calc(100vw - 1rem);
+	max-height: calc(100vh - 1rem);
 	padding: 0.35rem;
 	border: 1px solid rgba(255, 255, 255, 0.08);
 	border-radius: 0.5rem;
 	background: #2f3138;
 	box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.35);
+	overflow-y: auto;
 }
 
 .recording-manage-option {
