@@ -56,6 +56,17 @@ Open <http://localhost:5000>.
 
 Check runner connectivity at <http://localhost:5000/api/ros2/health>.
 
+## Quick start
+
+1. Refresh the Topics list and select the ROS 2 topics you want to use.
+2. In Recording, optionally enter a prefix, then start and stop a bag recording.
+    With the development Compose setup, recordings are saved under `./storage`
+    on the host, mounted as `/storage` in the containers.
+3. On the Recordings page, view a recording's metadata or rename and delete it.
+4. In Topic Monitor, choose one of the selected topics and measure its message
+    frequency (Hz) and bandwidth (B/s). The monitor displays measurements rather
+    than graphs.
+
 ## Production
 
 Set `APP_ENV = "production"` in `config.py`. On the host, open a terminal where
