@@ -1,12 +1,30 @@
 import json
 from pathlib import Path
 
-from flask import Blueprint, render_template
+from flask import Blueprint, current_app, render_template
 
 from backend.database import get_database
 
 
 blueprint = Blueprint("pages", __name__)
+
+
+SYSTEM_CONFIG = (
+    ("APP_ENV", "Application environment", "text"),
+    ("PERSIST_DATABASE", "Persistent database", "boolean"),
+    ("SERVER_ADDRESS", "Server address", "code"),
+    ("SERVER_PORT", "Server port", "number"),
+    ("ROS2_RUNNER_ADDRESS", "ROS 2 runner address", "code"),
+    ("ROS2_RUNNER_PORT", "ROS 2 runner port", "number"),
+    ("ROS2_COMMAND_TIMEOUT", "ROS 2 command timeout", "duration"),
+    ("RECORDING_TIMEOUT_SECONDS", "Recording timeout", "duration"),
+    ("TOPIC_MONITOR_WINDOW", "Topic monitor window", "window"),
+    ("PERFORMANCE_POLL_INTERVAL_SECONDS", "Performance refresh interval", "duration"),
+    ("DEBUG", "Debug mode", "boolean"),
+    ("LOGGING_ENABLED", "Application logging", "boolean"),
+    ("LOG_LEVEL", "Log level", "text"),
+    ("DATABASE", "Database", "code"),
+)
 
 
 def _render_page(template, *, active_page, title, **context):
@@ -47,6 +65,31 @@ def _format_size(size_bytes):
     if value >= 10 or value.is_integer():
         return f"{int(round(value))}{units[unit_index]}"
     return f"{value:.1f}{units[unit_index]}"
+
+
+def _format_duration(seconds):
+    if seconds % 3600 == 0:
+        value, unit = seconds // 3600, "hour"
+    elif seconds % 60 == 0:
+        value, unit = seconds // 60, "minute"
+    else:
+        value, unit = seconds, "second"
+    return f"{value} {unit}{'' if value == 1 else 's'}"
+
+
+def _format_config(value, kind):
+    if kind == "boolean":
+        return "Enabled" if value else "Disabled"
+    if kind == "duration":
+        return _format_duration(value)
+    if kind == "window":
+        return (
+            f"Default {value['default']:,} messages; "
+            f"range {value['min']:,}–{value['max']:,}"
+        )
+    if kind == "text" and isinstance(value, str):
+        return value.replace("_", " ").title()
+    return str(value)
 
 
 def _recordings():
@@ -97,4 +140,23 @@ def recordings_page():
         active_page="recordings",
         title="Recordings",
         recordings=_recordings(),
+    )
+
+
+@blueprint.get("/system")
+def system_page():
+    settings = [
+        {
+            "key": key,
+            "label": label,
+            "value": _format_config(current_app.config[key], kind),
+            "code": kind == "code",
+        }
+        for key, label, kind in SYSTEM_CONFIG
+    ]
+    return _render_page(
+        "system.html",
+        active_page="system",
+        title="System",
+        settings=settings,
     )

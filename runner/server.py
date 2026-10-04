@@ -8,6 +8,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import config
+from runner.metrics import MetricsError, collect_metrics
 
 
 BACKGROUND_OUTPUT_LIMIT = 64 * 1024
@@ -231,6 +232,15 @@ class CommandHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == "/health":
             self.send_json(200, {"status": "ok"})
+            return
+
+        if self.path == "/metrics":
+            try:
+                result = collect_metrics()
+            except MetricsError as error:
+                self.send_json(500, {"error": str(error)})
+                return
+            self.send_json(200, result)
             return
 
         if self.path == "/background-command":

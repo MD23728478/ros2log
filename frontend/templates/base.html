@@ -16,11 +16,14 @@
     >
   </head>
 
-  <body class="app-shell">
+  <body class="app-shell" data-performance-poll-interval="{{ config.PERFORMANCE_POLL_INTERVAL_SECONDS }}">
     {% block content %}{% endblock %}
 
     <script
       src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"
+    ></script>
+    <script
+      src="{{ url_for('static', filename='js/performance-poller.js') }}"
     ></script>
   </body>
 </html>

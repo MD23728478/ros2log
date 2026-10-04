@@ -16,6 +16,10 @@ class Ros2BackgroundCommandError(Ros2CommandError):
         self.status_code = status_code
 
 
+class RunnerMetricsError(Exception):
+    pass
+
+
 def _valid_arguments(arguments) -> bool:
     return bool(arguments) and all(
         isinstance(argument, str) and argument for argument in arguments
@@ -142,6 +146,73 @@ def ros2_background_command_stop() -> dict[str, int | str | bool | None]:
 
 BACKGROUND_REQUEST_TIMEOUT = 2
 BACKGROUND_STOP_REQUEST_TIMEOUT = 32
+
+
+def runner_metrics() -> dict:
+    address = current_app.config["ROS2_RUNNER_ADDRESS"]
+    port = current_app.config["ROS2_RUNNER_PORT"]
+    try:
+        with urlopen(f"http://{address}:{port}/metrics", timeout=3) as response:
+            result = json.load(response)
+    except HTTPError as error:
+        try:
+            message = json.load(error).get("error", str(error))
+        except (AttributeError, json.JSONDecodeError):
+            message = str(error)
+        raise RunnerMetricsError(message) from error
+    except (OSError, URLError) as error:
+        raise RunnerMetricsError(f"ROS 2 runner is unavailable: {error}") from error
+    except json.JSONDecodeError as error:
+        raise RunnerMetricsError("ROS 2 runner returned invalid JSON") from error
+
+    if not _valid_metrics(result):
+        raise RunnerMetricsError("ROS 2 runner returned invalid metrics")
+    return result
+
+
+def _valid_metrics(result) -> bool:
+    if not isinstance(result, dict) or result.get("scope") not in {"host", "container"}:
+        return False
+
+    def finite_number(value, *, minimum=0, maximum=None):
+        valid = (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(value)
+            and value >= minimum
+        )
+        return valid and (maximum is None or value <= maximum)
+
+    def usage(value):
+        return (
+            isinstance(value, dict)
+            and type(value.get("used_bytes")) is int
+            and value["used_bytes"] >= 0
+            and type(value.get("total_bytes")) is int
+            and value["total_bytes"] > 0
+            and value["used_bytes"] <= value["total_bytes"]
+            and finite_number(value.get("percent"), maximum=100)
+        )
+
+    def optional(value, validator):
+        return value is None or validator(value)
+
+    storage = result.get("storage")
+    return (
+        (result.get("hostname") is None or isinstance(result.get("hostname"), str))
+        and optional(
+            result.get("cpu_percent"),
+            lambda value: finite_number(value, maximum=100),
+        )
+        and optional(result.get("memory"), usage)
+        and optional(
+            storage,
+            lambda value: usage(value)
+            and isinstance(value.get("path"), str)
+            and bool(value["path"]),
+        )
+        and optional(result.get("uptime_seconds"), finite_number)
+    )
 
 
 def _background_command_request(

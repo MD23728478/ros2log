@@ -39,6 +39,8 @@ Edit settings directly in `config.py`:
 
 - `APP_ENV`: `"development"` or `"production"`.
 - `ROS2_COMMAND_TIMEOUT`: maximum duration of a finite ROS 2 command.
+- `PERFORMANCE_POLL_INTERVAL_SECONDS`: browser performance refresh interval;
+  defaults to 300 seconds.
 
 
 ## Development
@@ -50,6 +52,11 @@ docker compose --profile development up --build
 ```
 
 Open <http://localhost:5000>.
+
+The read-only System page at <http://localhost:5000/system> shows live resource
+usage for the application container and ROS runner environment, together with
+the current project configuration. Recent graph samples stay in the browser
+tab only and are not written to the database.
 
 Check whether Flask can reach the command runner at <http://localhost:5000/api/ros2/health>.
 

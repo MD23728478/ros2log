@@ -4,6 +4,6 @@
   <nav class="app-sidebar-nav" aria-label="Navigation">
     <a class="app-sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('pages.index') }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
     <a class="app-sidebar-link{% if active_page == 'recordings' %} active{% endif %}" href="{{ url_for('pages.recordings_page') }}"{% if active_page == 'recordings' %} aria-current="page"{% endif %}>Recordings</a>
-    <a class="app-sidebar-link" href="#">Settings</a>
+    <a class="app-sidebar-link{% if active_page == 'system' %} active{% endif %}" href="{{ url_for('pages.system_page') }}"{% if active_page == 'system' %} aria-current="page"{% endif %}>System</a>
   </nav>
 </aside>
