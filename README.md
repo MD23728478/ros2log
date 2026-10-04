@@ -79,3 +79,9 @@ development Compose profile mounts `./storage` into both containers. See
 docker-compose build app # ensure latest changes
 docker compose run --rm app pytest
 ```
+
+Run status polling tests with Node.js:
+
+```bash
+node --test test/test_ros2_status_ui.cjs
+```

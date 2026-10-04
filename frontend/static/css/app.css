@@ -113,6 +113,33 @@ body {
 	color: rgba(242, 242, 242, 0.92);
 }
 
+.dashboard-heading {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.75rem 1rem;
+	margin-bottom: 1.5rem;
+}
+
+.dashboard-heading .app-dashboard-title {
+	margin: 0;
+}
+
+.ros2-status {
+	padding-left: 1rem;
+	border-left: 1px solid rgba(242, 242, 242, 0.25);
+	font-size: 0.9rem;
+	line-height: 1.5;
+	white-space: nowrap;
+	color: #ffffff;
+}
+
+.ros2-status[data-state="ros2_unavailable"],
+.ros2-status[data-state="runner_unavailable"],
+.ros2-status[data-state="unknown"] {
+	color: #ff6b6b;
+}
+
 .dashboard-tools {
 	display: grid;
 	grid-template-columns: minmax(12rem, 16rem) minmax(0, 42rem);

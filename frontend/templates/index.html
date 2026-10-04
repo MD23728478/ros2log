@@ -9,7 +9,10 @@
     {% include "sidebar.html" %}
 
     <main class="app-dashboard-main">
-      <h1 class="app-dashboard-title">Dashboard</h1>
+      <div class="dashboard-heading">
+        <h1 class="app-dashboard-title">Dashboard</h1>
+        <span id="ros2-status" class="ros2-status" data-state="checking" role="status" aria-atomic="true">CHECKING</span>
+      </div>
       <div class="dashboard-tools">
         {% include "topic_list.html" %}
         {% include "topic_recording.html" %}
@@ -17,6 +20,7 @@
       </div>
       <script src="{{ url_for('static', filename='js/topic-list.js') }}"></script>
       <script src="{{ url_for('static', filename='js/topic-recording.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/ros2-status.js') }}"></script>
     </main>
   </div>
 {% endblock %}
