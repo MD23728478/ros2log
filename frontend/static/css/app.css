@@ -113,6 +113,33 @@ body {
 	color: rgba(242, 242, 242, 0.92);
 }
 
+.dashboard-heading {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.75rem 1rem;
+	margin-bottom: 1.5rem;
+}
+
+.dashboard-heading .app-dashboard-title {
+	margin: 0;
+}
+
+.ros2-status {
+	padding-left: 1rem;
+	border-left: 1px solid rgba(242, 242, 242, 0.25);
+	font-size: 0.9rem;
+	line-height: 1.5;
+	white-space: nowrap;
+	color: #ffffff;
+}
+
+.ros2-status[data-state="ros2_unavailable"],
+.ros2-status[data-state="runner_unavailable"],
+.ros2-status[data-state="unknown"] {
+	color: #ff6b6b;
+}
+
 .dashboard-tools {
 	display: grid;
 	grid-template-columns: minmax(12rem, 16rem) minmax(0, 42rem);
@@ -357,16 +384,19 @@ body {
 }
 
 .recording-manage-menu {
-	position: absolute;
-	top: calc(100% + 0.35rem);
-	right: 0;
-	z-index: 20;
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 1000;
 	min-width: 8rem;
+	max-width: calc(100vw - 1rem);
+	max-height: calc(100vh - 1rem);
 	padding: 0.35rem;
 	border: 1px solid rgba(255, 255, 255, 0.08);
 	border-radius: 0.5rem;
 	background: #2f3138;
 	box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.35);
+	overflow-y: auto;
 }
 
 .recording-manage-option {
