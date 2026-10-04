@@ -6,7 +6,8 @@ The Flask application runs in Docker and sends time-limited ROS 2 commands to a
 small command runner over HTTP. During development the runner and random test
 topics run in a Jazzy container. In production the runner executes directly on
 the ROS 2 host. The runner also supports one background command for operations
-such as recording a ROS bag.
+such as recording a ROS bag. The dashboard lists topics and controls recordings;
+the recordings page provides saved bag information and parsed metadata.
 
 ```mermaid
 flowchart LR
@@ -39,11 +40,13 @@ Edit settings directly in `config.py`:
 
 - `APP_ENV`: `"development"` or `"production"`.
 - `ROS2_COMMAND_TIMEOUT`: maximum duration of a finite ROS 2 command.
+- `RECORDING_TIMEOUT_SECONDS`: maximum duration of a recording.
+- `TOPIC_MONITOR_WINDOW`: default and allowed message-count window for topic measurements.
 
 
 ## Development
 
-Start the application, Jazzy command runner, and random test topics:
+Start the application, Jazzy command runner, and sample ROS 2 topics:
 
 ```bash
 docker compose --profile development up --build
@@ -51,7 +54,7 @@ docker compose --profile development up --build
 
 Open <http://localhost:5000>.
 
-Check whether Flask can reach the command runner at <http://localhost:5000/api/ros2/health>.
+Check runner connectivity at <http://localhost:5000/api/ros2/health>.
 
 ## Production
 
@@ -75,7 +78,8 @@ development Compose profile mounts `./storage` into both containers. See
 
 ## Tests
 
+Run the test suite in the application container:
+
 ```bash
-docker-compose build app # ensure latest changes
-docker compose run --rm app pytest
+docker compose run --build --rm app pytest
 ```
