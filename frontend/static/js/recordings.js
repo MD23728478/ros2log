@@ -21,6 +21,24 @@
     });
   }
 
+  function positionMenu(button, menu) {
+    const anchor = button.getBoundingClientRect();
+    const bounds = menu.getBoundingClientRect();
+    const margin = 8;
+    const gap = 6;
+    const roomBelow = window.innerHeight - anchor.bottom - gap - margin;
+    const roomAbove = anchor.top - gap - margin;
+    const openAbove = bounds.height > roomBelow && roomAbove > roomBelow;
+
+    menu.style.top = `${openAbove
+      ? Math.max(margin, anchor.top - bounds.height - gap)
+      : Math.min(anchor.bottom + gap, window.innerHeight - bounds.height - margin)}px`;
+    menu.style.left = `${Math.max(
+      margin,
+      Math.min(anchor.right - bounds.width, window.innerWidth - bounds.width - margin)
+    )}px`;
+  }
+
   async function request(url, options) {
     const response = await fetch(url, { cache: 'no-store', ...options });
     const data = await response.json();
@@ -165,6 +183,7 @@
       closeMenus(row);
       menu.hidden = !willOpen;
       button.setAttribute('aria-expanded', String(willOpen));
+      if (willOpen) positionMenu(button, menu);
     });
 
     menu.querySelector('[data-action="rename"]').addEventListener('click', async () => {
@@ -215,4 +234,6 @@
   });
 
   document.addEventListener('click', () => closeMenus());
+  window.addEventListener('resize', () => closeMenus());
+  window.addEventListener('scroll', () => closeMenus(), true);
 })();
