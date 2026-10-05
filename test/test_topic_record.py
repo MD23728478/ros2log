@@ -82,7 +82,7 @@ def test_start_recording_returns_output_path_and_state(client, start_command, to
         body["output"],
         "--topics",
         *topics,
-        timeout_seconds=3600,
+        timeout_seconds=config.RECORDING_TIMEOUT_SECONDS,
     )
 
 
@@ -104,7 +104,7 @@ def test_start_recording_uses_prefix_in_output_path(app, client, start_command):
         output_path,
         "--topics",
         *topics,
-        timeout_seconds=3600,
+        timeout_seconds=config.RECORDING_TIMEOUT_SECONDS,
     )
     with app.app_context():
         saved_path = get_database().execute(
@@ -306,3 +306,85 @@ def test_runner_unavailable_fails_active_recording(
     assert "error" in response.get_json()
     assert row["status"] == "failed"
     assert row["finished_at"] is not None
+
+def test_start_recording_uses_custom_duration(client, start_command):
+    start_command.return_value = background_result(state="running")
+    topics = ["/ros2log/test/temperature"]
+
+    response = client.post(
+        "/api/record/start",
+        json={"topics": topics, "duration_seconds": 120},
+    )
+
+    assert response.status_code == 201
+
+    output_path = response.get_json()["output"]
+
+    start_command.assert_called_once_with(
+        "bag",
+        "record",
+        "--output",
+        output_path,
+        "--topics",
+        *topics,
+        timeout_seconds=120,
+    )
+
+@pytest.mark.parametrize(
+    "duration",
+    [0, -1, 1.5, "60", True],
+)
+def test_invalid_recording_duration_does_not_start(
+    client, start_command, duration
+):
+    response = client.post(
+        "/api/record/start",
+        json={
+            "topics": ["/ros2log/test/temperature"],
+            "duration_seconds": duration,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+    start_command.assert_not_called()
+
+def test_recording_duration_cannot_exceed_24_hours(client, start_command):
+    response = client.post(
+        "/api/record/start",
+        json={
+            "topics": ["/ros2log/test/temperature"],
+            "duration_seconds": 86401,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "error" in response.get_json()
+    start_command.assert_not_called()
+
+def test_status_reconciles_successful_timeout_as_finished(
+    app, client, status_command
+):
+    with app.app_context():
+        database = get_database()
+        database.execute(
+            "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+            ("/storage/recording-test", "[]", "started"),
+        )
+        database.commit()
+
+    status_command.return_value = background_result(
+        state="finished",
+        return_code=0,
+        termination_reason="timeout",
+    )
+
+    response = client.get("/api/record/status")
+
+    with app.app_context():
+        status = get_database().execute(
+            "SELECT status FROM recordings"
+        ).fetchone()["status"]
+
+    assert response.status_code == 200
+    assert status == "finished"

@@ -611,6 +611,41 @@ body {
 	min-width: 0;
 }
 
+.recording-timer {
+	align-items: center;
+	flex-wrap: wrap;
+}
+
+.recording-duration-fields {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.recording-duration-field {
+	display: flex;
+	align-items: center;
+	gap: 0.3rem;
+	margin: 0;
+}
+
+.recording-duration-field input {
+	width: 4.25rem;
+	flex: 0 0 4.25rem;
+	background: rgba(255, 255, 255, 0.03);
+	border-color: rgba(255, 255, 255, 0.08);
+	color: #f2f2f2;
+}
+
+.recording-duration-field input::placeholder {
+	color: rgba(242, 242, 242, 0.45);
+}
+
+.recording-duration-field span {
+	font-size: 0.9rem;
+	color: rgba(242, 242, 242, 0.75);
+}
+
 .btn-record-toggle {
 	padding: 0.85rem 2.25rem;
 	font-size: 1.05rem;
