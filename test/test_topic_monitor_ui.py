@@ -53,6 +53,9 @@ def dashboard(browser, monkeypatch):
     fixture = SimpleNamespace(
         page=page, monitor_requests=[], recording_requests=[],
         topics=[TEMPERATURE, BATTERY, STATUS],
+        recording_state="idle",
+        recording_started_at=None,
+        recording_output=None,
     )
 
     def route_request(route):
@@ -60,10 +63,24 @@ def dashboard(browser, monkeypatch):
         if url.path == "/api/topics":
             route.fulfill(json={"topics": fixture.topics})
         elif url.path == "/api/record/status":
-            route.fulfill(status=404, json={"error": "No recording"})
+            if fixture.recording_state == "running":
+                route.fulfill(json={
+                    "state": "running",
+                    "output": fixture.recording_output,
+                    "started_at": fixture.recording_started_at,
+                })
+            else:
+                route.fulfill(status=404, json={"error": "No recording"})
         elif url.path == "/api/record/start":
             fixture.recording_requests.append(route.request.post_data_json)
-            route.fulfill(json={"state": "completed"})
+            fixture.recording_state = "running"
+            fixture.recording_output = "/storage/recording-20261005-092429"
+            fixture.recording_started_at = "2026-09-16T12:00:00+00:00"
+            route.fulfill(json={
+                "state": "running",
+                "output": fixture.recording_output,
+                "started_at": fixture.recording_started_at,
+            })
         elif url.path == "/api/topic-monitor":
             query = parse_qs(url.query)
             fixture.monitor_requests.append(query)
@@ -135,6 +152,23 @@ def test_topic_list_dropdown_and_recording_keep_their_shared_selection(dashboard
     page.locator("#recording-start").click()
     expect(page.locator("#recording-state")).to_have_text("Completed")
     assert dashboard.recording_requests == [{"topics": [TEMPERATURE, BATTERY]}]
+
+
+def test_recording_timer_survives_navigation(dashboard):
+    page = dashboard.page
+    select(page)
+    freeze_clock(page)
+    page.locator("#recording-start").click()
+    expect(page.locator("#recording-state")).to_have_text("Running")
+
+    page.clock.fast_forward(65000)
+    expect(page.locator("#recording-elapsed")).to_have_text("00:01:05")
+
+    page.goto("http://ros2log.test/recordings")
+    page.goto("http://ros2log.test/")
+
+    expect(page.locator("#recording-state")).to_have_text("Running")
+    expect(page.locator("#recording-elapsed")).to_have_text("00:01:05")
 
 
 @pytest.mark.parametrize("window", ["1", "10001", "2.5", ""])

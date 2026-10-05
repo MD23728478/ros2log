@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -23,6 +24,10 @@ def background_result(state="running", return_code=None, **extra):
     }
     result.update(extra)
     return result
+
+
+def to_iso_timestamp(value):
+    return datetime.fromisoformat(value).replace(tzinfo=timezone.utc).isoformat()
 
 
 @pytest.fixture
@@ -74,6 +79,7 @@ def test_start_recording_returns_output_path_and_state(client, start_command, to
     assert response.status_code == 201
     body = response.get_json()
     assert body["state"] == "running"
+    assert body["started_at"].endswith("+00:00")
     assert body["output"].startswith("/storage/recording-")
     start_command.assert_called_once_with(
         "bag",
@@ -148,12 +154,13 @@ def test_start_recording_persists_started_record(app, client, start_command):
 
     with app.app_context():
         row = get_database().execute(
-            "SELECT output_path, topics, status, finished_at FROM recordings"
+            "SELECT output_path, topics, status, started_at, finished_at FROM recordings"
         ).fetchone()
 
     assert row["output_path"] == response.get_json()["output"]
     assert json.loads(row["topics"]) == topics
     assert row["status"] == "started"
+    assert to_iso_timestamp(row["started_at"]) == response.get_json()["started_at"]
     assert row["finished_at"] is None
 
 
@@ -187,10 +194,23 @@ def test_start_conflict_when_already_recording(app, client, start_command):
 
 
 def test_status_returns_current_state(client, status_command):
+    with client.application.app_context():
+        database = get_database()
+        database.execute(
+            "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+            ("/storage/recording-test", "[]", "started"),
+        )
+        database.commit()
+        started_at = database.execute(
+            "SELECT started_at FROM recordings"
+        ).fetchone()["started_at"]
+
     status_command.return_value = background_result(state="running")
     response = client.get("/api/record/status")
     assert response.status_code == 200
-    assert response.get_json()["state"] == "running"
+    body = response.get_json()
+    assert body["state"] == "running"
+    assert body["started_at"] == to_iso_timestamp(started_at)
 
 
 def test_status_marks_unexpectedly_finished_recording_failed(

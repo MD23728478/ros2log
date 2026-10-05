@@ -15,6 +15,18 @@
   let elapsedStartedAt = null;
   let elapsedTimerId = null;
 
+  function isActiveState(value) {
+    return value === 'running' || value === 'stopping';
+  }
+
+  function updateElapsedStart(startedAt) {
+    if (!startedAt) return;
+    const parsed = Date.parse(startedAt);
+    if (!Number.isNaN(parsed)) {
+      elapsedStartedAt = parsed;
+    }
+  }
+
   function selectedTopicLabels() {
     if (!selectedTopics.length) return 'Select one or more topics from the list.';
     if (selectedTopics.length === 1) return selectedTopics[0];
@@ -22,10 +34,10 @@
   }
 
   function syncTopic() {
-    topic.textContent = state.dataset.state === 'running'
+    topic.textContent = isActiveState(state.dataset.state)
       ? (selectedTopics.length ? selectedTopics.join(', ') : 'Recording in progress.')
       : selectedTopicLabels();
-    start.disabled = state.dataset.state === 'running' || !selectedTopics.length;
+    start.disabled = isActiveState(state.dataset.state) || !selectedTopics.length;
   }
 
   function showError(message = '') {
@@ -95,15 +107,15 @@
     state.dataset.state = current;
     state.className = `recording-state ${current}`;
     state.textContent = current[0].toUpperCase() + current.slice(1);
-    start.disabled = current === 'running' || !selectedTopics.length;
+    start.disabled = isActiveState(current) || !selectedTopics.length;
     stop.disabled = current !== 'running';
-    prefix.disabled = current === 'running' || current === 'stopping';
-    hours.disabled = current === 'running' || current === 'stopping';
-    minutes.disabled = current === 'running' || current === 'stopping';
-    seconds.disabled = current === 'running' || current === 'stopping';
+    prefix.disabled = isActiveState(current);
+    hours.disabled = isActiveState(current);
+    minutes.disabled = isActiveState(current);
+    seconds.disabled = isActiveState(current);
     syncTopic();
 
-    if (current === 'running') {
+    if (isActiveState(current)) {
       if (elapsedStartedAt === null) {
         elapsedStartedAt = Date.now();
       }
@@ -124,6 +136,7 @@
   }
 
   function render(data) {
+    updateElapsedStart(data.started_at);
     setState(data.state || 'idle');
     if (data.output) output.textContent = data.output;
   }
@@ -187,7 +200,6 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      elapsedStartedAt = Date.now();
       render(data);
     } catch (failure) {
       showError(failure.message);
