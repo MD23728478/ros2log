@@ -167,6 +167,22 @@ body {
 	margin-bottom: 0.75rem;
 }
 
+.topic-recording-header {
+	gap: 0.75rem;
+}
+
+.recording-elapsed {
+	padding: 0.2rem 0.5rem;
+	border: 1px solid rgba(255,255,255,0.10);
+	border-radius: 999px;
+	background: rgba(255,255,255,0.03);
+	color: #d9f8dd;
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	line-height: 1.2;
+	white-space: nowrap;
+}
 
 .topic-list-search {
 	display: block;
