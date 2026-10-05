@@ -40,6 +40,8 @@ Edit settings directly in `config.py`:
 
 - `APP_ENV`: `"development"` or `"production"`.
 - `ROS2_COMMAND_TIMEOUT`: maximum duration of a finite ROS 2 command.
+- `PERFORMANCE_POLL_INTERVAL_SECONDS`: browser performance refresh interval;
+  defaults to 300 seconds.
 - `RECORDING_TIMEOUT_SECONDS`: maximum duration of a recording.
 - `TOPIC_MONITOR_WINDOW`: default and allowed message-count window for topic measurements.
 

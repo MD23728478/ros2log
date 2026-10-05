@@ -112,6 +112,15 @@ available before the command ends. Both the app and runner need this update.
 `GET /api/ros2/health` checks whether the HTTP runner responds. It returns
 `200` with `{"status": "ok"}` or `503` with `{"status": "unavailable"}`.
 
+## System performance
+
+`GET /api/performance` combines live metrics from the application container
+with `GET /metrics` on the existing ROS runner. Metrics requests do not use a
+ROS command or the background-command slot. The System page polls according to
+`PERFORMANCE_POLL_INTERVAL_SECONDS` (five minutes by default) on every loaded
+application page and keeps at most 30 samples in browser session storage. No
+performance history is stored in SQLite.
+
 ### Run a background ROS 2 command
 
 The runner manages one background command at a time. Starting another while it

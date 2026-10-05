@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}System{% endblock %}
+
+{% block content %}
+  {% include "header.html" %}
+
+  <div class="app-dashboard">
+    {% include "sidebar.html" %}
+
+    <main class="app-dashboard-main">
+      <h1 class="app-dashboard-title">System</h1>
+
+      <section class="system-section" aria-labelledby="performance-title">
+        <header class="system-section-header">
+          <h2 id="performance-title">Performance</h2>
+          <div class="performance-poll-controls">
+            <button id="performance-poll-now" class="btn btn-sm btn-outline-light" type="button" data-label="Poll">Poll</button>
+            <p id="performance-updated" class="performance-updated" role="status" aria-live="polite">Last: —</p>
+          </div>
+        </header>
+
+        <div class="performance-targets">
+          {% for target, title in (("application", "ros2log Container"), ("runner", "Runner Host")) %}
+            <article class="performance-card" data-performance-target="{{ target }}">
+              <header class="performance-card-header">
+                <h3>{{ title }} <span data-role="hostname">(—)</span></h3>
+                <div class="performance-card-meta">
+                  <span data-role="uptime">Uptime: —</span>
+                  <span class="performance-card-status" data-role="status"></span>
+                </div>
+              </header>
+
+              <div class="performance-metric">
+                <div class="performance-metric-heading">
+                  <span>CPU</span><strong data-role="cpu-value">—</strong>
+                </div>
+                <svg class="performance-chart" data-role="cpu-chart" viewBox="0 0 300 80" role="img" aria-label="Recent CPU usage"></svg>
+              </div>
+
+              <div class="performance-metric">
+                <div class="performance-metric-heading">
+                  <span>Memory</span><strong data-role="memory-value">—</strong>
+                </div>
+                <svg class="performance-chart" data-role="memory-chart" viewBox="0 0 300 80" role="img" aria-label="Recent memory usage"></svg>
+                <p class="performance-detail" data-role="memory-detail">—</p>
+              </div>
+
+              <div class="performance-metric">
+                <div class="performance-metric-heading">
+                  <span>Storage <code>/storage</code></span><strong data-role="storage-value">—</strong>
+                </div>
+                <div class="performance-bar" role="progressbar" aria-label="Storage usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <span data-role="storage-bar"></span>
+                </div>
+                <p class="performance-detail" data-role="storage-detail">—</p>
+              </div>
+
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="system-section" aria-labelledby="configuration-title">
+        <header class="system-section-header">
+          <h2 id="configuration-title">Configuration</h2>
+        </header>
+        <dl class="system-config-grid">
+          {% for setting in settings %}
+            <div class="system-config-item">
+              <dt>{{ setting.label }}</dt>
+              <dd{% if setting.code %} class="system-config-code"{% endif %}>{{ setting.value }}</dd>
+              <span>{{ setting.key }}</span>
+            </div>
+          {% endfor %}
+        </dl>
+      </section>
+      <script defer src="{{ url_for('static', filename='js/system.js') }}"></script>
+    </main>
+  </div>
+{% endblock %}

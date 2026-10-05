@@ -672,3 +672,197 @@ body {
 	justify-content: center;
 	gap: 0.5rem;
 }
+
+.system-section {
+	max-width: 72rem;
+	margin-bottom: 1.5rem;
+	padding: 1rem;
+	border: 1px solid rgba(255, 255, 255, 0.05);
+	border-radius: 0.6rem;
+	background: rgba(255, 255, 255, 0.02);
+}
+
+.system-section-header,
+.performance-card-header,
+.performance-metric-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.system-section-header {
+	margin-bottom: 1rem;
+}
+
+.system-section-header h2,
+.performance-card-header h3 {
+	margin: 0;
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+.system-section-header p,
+.performance-updated {
+	margin: 0;
+	color: rgba(242, 242, 242, 0.62);
+	font-size: 0.88rem;
+}
+
+.performance-updated {
+	flex: 0 0 auto;
+	text-align: right;
+}
+
+.performance-poll-controls {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 0.65rem;
+	flex-wrap: wrap;
+}
+
+.performance-targets {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 1rem;
+}
+
+.performance-card {
+	min-width: 0;
+	padding: 1rem;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 0.5rem;
+	background: rgba(0, 0, 0, 0.08);
+}
+
+.performance-card-status {
+	color: rgba(242, 242, 242, 0.58);
+	font-size: 0.78rem;
+}
+
+.performance-card-meta {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: rgba(242, 242, 242, 0.58);
+	font-size: 0.78rem;
+	white-space: nowrap;
+}
+
+.performance-card-status {
+	color: #8de5aa;
+}
+
+.performance-card.error .performance-card-status {
+	color: #ffb3b3;
+}
+
+.performance-metric {
+	margin-top: 1rem;
+}
+
+.performance-metric-heading {
+	margin-bottom: 0.45rem;
+	font-size: 0.9rem;
+}
+
+.performance-metric-heading code {
+	color: rgba(242, 242, 242, 0.62);
+}
+
+.performance-chart {
+	display: block;
+	width: 100%;
+	height: 5rem;
+	border-radius: 0.35rem;
+	background: rgba(255, 255, 255, 0.025);
+}
+
+.performance-chart-grid {
+	fill: none;
+	stroke: rgba(255, 255, 255, 0.07);
+	stroke-width: 1;
+}
+
+.performance-chart-line {
+	fill: none;
+	stroke: #78a9ff;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-width: 2.5;
+}
+
+.performance-chart-point {
+	fill: #78a9ff;
+}
+
+.performance-detail {
+	margin: 0.35rem 0 0;
+	color: rgba(242, 242, 242, 0.62);
+	font-size: 0.8rem;
+}
+
+.performance-bar {
+	height: 0.65rem;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.08);
+	overflow: hidden;
+}
+
+.performance-bar span {
+	display: block;
+	width: 0;
+	height: 100%;
+	border-radius: inherit;
+	background: #78a9ff;
+	transition: width 0.2s ease;
+}
+
+.system-config-item {
+	min-width: 0;
+	padding: 0.7rem;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 0.4rem;
+	background: rgba(255, 255, 255, 0.02);
+}
+
+.system-config-item dt {
+	color: rgba(242, 242, 242, 0.62);
+	font-size: 0.8rem;
+}
+
+.system-config-item dd {
+	margin: 0.3rem 0 0;
+	overflow-wrap: anywhere;
+}
+
+.system-config-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+	gap: 0.7rem;
+	margin: 0;
+}
+
+.system-config-item span {
+	display: block;
+	margin-top: 0.35rem;
+	color: rgba(242, 242, 242, 0.38);
+	font-size: 0.68rem;
+	letter-spacing: 0.02em;
+}
+
+.system-config-code {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 0.85rem;
+}
+
+@media (max-width: 62rem) {
+	.performance-targets { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 40rem) {
+	.system-section-header { align-items: flex-start; flex-direction: column; }
+	.performance-poll-controls { justify-content: flex-start; }
+	.performance-updated { text-align: left; }
+}
