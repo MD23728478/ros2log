@@ -9,8 +9,11 @@
   const start = document.getElementById('recording-start');
   const stop = document.getElementById('recording-stop');
   const error = document.getElementById('recording-error');
+  const elapsedBadge = document.getElementById('recording-elapsed');
   let pollId = null;
   let selectedTopics = [];
+  let elapsedStartedAt = null;
+  let elapsedTimerId = null;
 
   function selectedTopicLabels() {
     if (!selectedTopics.length) return 'Select one or more topics from the list.';
@@ -60,6 +63,33 @@
     return totalSeconds > 0 ? totalSeconds : null;
   }
 
+  function formatElapsedSeconds(totalSeconds) {
+    const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+    const hoursValue = String(Math.floor(safeSeconds / 3600)).padStart(2, '0');
+    const minutesValue = String(Math.floor((safeSeconds % 3600) / 60)).padStart(2, '0');
+    const secondsValue = String(safeSeconds % 60).padStart(2, '0');
+    return `${hoursValue}:${minutesValue}:${secondsValue}`;
+  }
+
+  function updateElapsedBadge() {
+    if (state.dataset.state !== 'running' || elapsedStartedAt === null) {
+      elapsedBadge.textContent = '00:00';
+      return;
+    }
+
+    const elapsedSeconds = (Date.now() - elapsedStartedAt) / 1000;
+    elapsedBadge.textContent = formatElapsedSeconds(elapsedSeconds);
+  }
+
+  function clearElapsedTimer() {
+    elapsedStartedAt = null;
+    if (elapsedTimerId) {
+      clearInterval(elapsedTimerId);
+      elapsedTimerId = null;
+    }
+    elapsedBadge.textContent = '00:00';
+  }
+
   function setState(value = 'idle') {
     const current = value.toLowerCase();
     state.dataset.state = current;
@@ -73,11 +103,23 @@
     seconds.disabled = current === 'running' || current === 'stopping';
     syncTopic();
 
-    if (current === 'running' && !pollId) {
-      pollId = setInterval(checkStatus, 2000);
-    } else if (current !== 'running' && pollId) {
-      clearInterval(pollId);
-      pollId = null;
+    if (current === 'running') {
+      if (elapsedStartedAt === null) {
+        elapsedStartedAt = Date.now();
+      }
+      if (!elapsedTimerId) {
+        elapsedTimerId = setInterval(updateElapsedBadge, 250);
+      }
+      updateElapsedBadge();
+      if (!pollId) {
+        pollId = setInterval(checkStatus, 2000);
+      }
+    } else {
+      clearElapsedTimer();
+      if (pollId) {
+        clearInterval(pollId);
+        pollId = null;
+      }
     }
   }
 
@@ -140,11 +182,13 @@
     seconds.disabled = true;
 
     try {
-      render(await request('/api/record/start', {
+      const data = await request('/api/record/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      }));
+      });
+      elapsedStartedAt = Date.now();
+      render(data);
     } catch (failure) {
       showError(failure.message);
       setState('error');
