@@ -46,6 +46,7 @@ def record_start():
 
     topics = body.get("topics")
     prefix = body.get("prefix", "")
+    duration_seconds = body.get("duration_seconds")
 
     if not isinstance(topics, list) or not topics or not all(
         isinstance(topic, str) and TOPIC_NAME_PATTERN.fullmatch(topic) for topic in topics
@@ -59,6 +60,27 @@ def record_start():
         return jsonify(
             error="Prefix must contain 1-32 letters, numbers, hyphens, or underscores."
         ), 400
+
+    if duration_seconds is not None:
+        if (
+            not isinstance(duration_seconds, int)
+            or isinstance(duration_seconds, bool)
+            or duration_seconds <= 0
+        ):
+            return jsonify(
+                error="Duration must be a positive whole number of seconds."
+            ), 400
+
+        if duration_seconds > current_app.config["RECORDING_TIMEOUT_SECONDS"]:
+            return jsonify(
+                error="Duration cannot exceed the maximum recording time."
+            ), 400
+
+    recording_timeout = (
+        duration_seconds
+        if duration_seconds is not None
+        else current_app.config["RECORDING_TIMEOUT_SECONDS"]
+    )
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     recording_name = f"recording-{timestamp}"
@@ -75,7 +97,7 @@ def record_start():
     try:
         result = ros2_background_command_start(
             "bag", "record", "--output", output_path, "--topics", *topics,
-            timeout_seconds=current_app.config["RECORDING_TIMEOUT_SECONDS"],
+            timeout_seconds=recording_timeout,
         )
     except Ros2BackgroundCommandError as error:
         database.execute("DELETE FROM recordings WHERE output_path = ?", (output_path,))
@@ -98,7 +120,7 @@ def record_status():
     if result.get("state") == "finished":
         status = (
             "finished"
-            if result.get("termination_reason") == "manual"
+            if result.get("termination_reason") in ("manual", "timeout")
             and result.get("return_code") == 0
             else "failed"
         )
