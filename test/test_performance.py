@@ -1,5 +1,6 @@
 import json
 import shutil
+from html import unescape
 from http.server import ThreadingHTTPServer
 from threading import Thread
 from urllib.request import urlopen
@@ -140,3 +141,22 @@ def test_system_page_shows_metrics_and_configuration(app):
     assert b"PERFORMANCE_POLL_INTERVAL_SECONDS" in response.data
     assert b"ROS2_RUNNER_ADDRESS" in response.data
     assert b'aria-current="page">System' in response.data
+
+
+def test_system_page_shows_all_final_config_values(monkeypatch):
+    monkeypatch.setattr(config, "PERSIST_DATABASE", False)
+    monkeypatch.setattr(config, "DATABASE", "file:system_test?mode=memory&cache=shared")
+    monkeypatch.setattr(config, "CONDITIONAL_VALUE", "long_value/with-details", raising=False)
+    application = create_app()
+    application.config["TESTING"] = True
+
+    try:
+        page = unescape(application.test_client().get("/system").get_data(as_text=True))
+        for key in vars(config):
+            if key.isupper():
+                assert f"<dt>{key}</dt>" in page
+        assert "<dd>long_value/with-details</dd>" in page
+        assert "<dd>86400</dd>" in page
+        assert "<dt>TESTING</dt>" not in page
+    finally:
+        application.extensions["database_keeper"].close()
