@@ -1,16 +1,20 @@
 <section class="topic-recording" aria-labelledby="topic-recording-title">
   <header class="topic-recording-header">
     <h2 id="topic-recording-title" class="topic-recording-title">Recording</h2>
-    <span id="recording-elapsed" class="recording-elapsed" aria-live="polite">00:00</span>
+    <span id="ros2-status" class="ros2-status" data-state="checking" role="status" aria-atomic="true">CHECKING</span>
   </header>
 
+  <div class="recording-body">
   <div class="recording-status-block">
     <span id="recording-state" class="recording-state" data-state="idle">STATUS: IDLE</span>
+    <span id="recording-elapsed" class="recording-elapsed" aria-live="polite">00:00</span>
     <div class="recording-controls">
       <button id="recording-start" class="btn-record-toggle" type="button" disabled>Start recording</button>
       <button id="recording-stop" class="btn-record-toggle stop" type="button" disabled>Stop</button>
     </div>
   </div>
+  <div class="recording-settings">
+    <h3 class="topic-recording-title">Settings</h3>
 
   <div class="topic-recording-row recording-prefix">
     <label for="recording-prefix"><strong>Prefix (optional):</strong></label>
@@ -74,5 +78,7 @@
     <span id="recording-output">—</span>
   </div>
   <div id="recording-error" class="topic-recording-error" role="alert"></div>
+  </div>
+  </div>
 </section>
 
