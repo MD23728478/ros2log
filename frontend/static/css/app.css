@@ -283,8 +283,17 @@ body {
 	max-width: 26rem;
 }
 
+.recordings-page-panel {
+	background: rgba(255, 255, 255, 0.02);
+	border: 1px solid rgba(255, 255, 255, 0.03);
+	border-radius: 0.6rem;
+	overflow: hidden;
+}
+
 .recordings-page-header {
-	margin-bottom: 0.9rem;
+	padding: 1rem;
+	background: rgba(255, 255, 255, 0.035);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .recordings-page-title {
@@ -308,9 +317,6 @@ body {
 	min-width: 44rem;
 	border-collapse: collapse;
 	border-spacing: 0;
-	background: rgba(255, 255, 255, 0.02);
-	border-radius: 0.6rem;
-	overflow: hidden;
 }
 
 .recordings-table thead th {
