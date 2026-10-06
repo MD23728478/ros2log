@@ -1,7 +1,6 @@
 import yaml
 
 import config
-from backend.api import recording_metadata
 from backend.app import create_app
 from backend.database import get_database
 
@@ -17,7 +16,7 @@ def test_recording_metadata_endpoint(monkeypatch, tmp_path):
     storage = tmp_path / "storage"
     recording_path = storage / "recording-test"
     recording_path.mkdir(parents=True)
-    monkeypatch.setattr(recording_metadata, "STORAGE_ROOT", storage)
+    monkeypatch.setattr(config, "STORAGE_PATH", storage)
 
     metadata = {
         "rosbag2_bagfile_information": {
@@ -72,7 +71,7 @@ def test_recording_metadata_endpoint(monkeypatch, tmp_path):
         database = get_database()
         database.execute(
             "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
-            ("/storage/recording-test", '["/topic"]', "finished"),
+            (str(recording_path), '["/topic"]', "finished"),
         )
         database.commit()
         recording_id = database.execute("SELECT id FROM recordings").fetchone()[0]

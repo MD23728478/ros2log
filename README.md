@@ -44,6 +44,28 @@ Edit settings directly in `config.py`:
   defaults to 300 seconds.
 - `RECORDING_TIMEOUT_SECONDS`: maximum duration of a recording.
 - `TOPIC_MONITOR_WINDOW`: default and allowed message-count window for topic measurements.
+- `STORAGE_PATH`: absolute path to shared storage as seen by the Flask app and
+  ROS 2 runner; defaults to `/storage`. Recordings and `app.db` live under it.
+
+The host path and container path are separate. In `compose.yaml`, the shared
+volume maps `./storage` (relative to the Compose project directory) to
+`/storage` in both development containers. To move only the host files, change
+the host side of `x-storage-volume`; `STORAGE_PATH` stays `/storage`. To change
+the path seen inside the containers, change `STORAGE_PATH` in `config.py` and
+the container side of `x-storage-volume` to the same absolute path. Also update
+the directory created in `docker/Dockerfile`. Rebuild both images after editing
+`config.py`, since each image copies it at build time.
+
+In production the ROS 2 runner starts on the host, so its `STORAGE_PATH` must
+refer to the same files at the same absolute path that the app sees in its
+container. Mount or link the host directory accordingly. Existing recording
+paths are saved as absolute paths in SQLite; moving the container path also
+requires moving the data and updating those rows, or retaining the old path as
+a link. Changing `STORAGE_PATH` also changes the default persistent database
+location (`<STORAGE_PATH>/app.db`). Keep the old database when moving storage.
+
+The ignore rules in `.gitignore` and `.dockerignore` refer to the default host
+`storage` folder. Update them if you move host storage within the project.
 
 
 ## Development
@@ -85,7 +107,7 @@ docker compose up --build
 ```
 
 The runner and Flask application must see the same physical storage at
-`/storage` before using background commands to create bag files. The
+the configured `STORAGE_PATH` before using background commands to create bag files. The
 development Compose profile mounts `./storage` into both containers. See
 [DOCUMENTATION.md](DOCUMENTATION.md) for the background command protocol.
 

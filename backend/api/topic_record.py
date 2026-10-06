@@ -86,7 +86,7 @@ def record_start():
     recording_name = f"recording-{timestamp}"
     if prefix:
         recording_name = f"{prefix}-{recording_name}"
-    output_path = f"/storage/{recording_name}"
+    output_path = str(current_app.config["STORAGE_PATH"] / recording_name)
     database = get_database()
     database.execute(
         "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",

@@ -61,6 +61,16 @@ def test_collect_metrics_for_container_and_host(monkeypatch, tmp_path, container
     assert result["storage"]["percent"] == 50.0
 
 
+def test_collect_metrics_uses_configured_storage_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr("runner.metrics._is_container", lambda: False)
+    monkeypatch.setattr("runner.metrics._cpu_percent", lambda *args: 0.0)
+    monkeypatch.setattr("runner.metrics._memory", lambda *args: (0, 100))
+    monkeypatch.setattr("runner.metrics._uptime", lambda *args: 0.0)
+
+    assert collect_metrics()["storage"]["path"] == str(tmp_path)
+
+
 def test_collect_metrics_marks_unavailable_platform_values(monkeypatch, tmp_path):
     unavailable = lambda *args: (_ for _ in ()).throw(MetricsError("unavailable"))
     monkeypatch.setattr("runner.metrics._is_container", lambda: False)

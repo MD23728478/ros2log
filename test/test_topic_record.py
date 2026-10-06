@@ -86,6 +86,20 @@ def test_start_recording_returns_output_path_and_state(client, start_command, to
     )
 
 
+def test_start_recording_uses_configured_storage_path(app, client, start_command, tmp_path):
+    storage_path = tmp_path / "bags"
+    app.config["STORAGE_PATH"] = storage_path
+    start_command.return_value = background_result(state="running")
+
+    response = client.post(
+        "/api/record/start", json={"topics": ["/ros2log/test/temperature"]}
+    )
+
+    assert response.status_code == 201
+    assert response.get_json()["output"].startswith(f"{storage_path}/recording-")
+    assert start_command.call_args.args[3] == response.get_json()["output"]
+
+
 def test_start_recording_uses_prefix_in_output_path(app, client, start_command):
     start_command.return_value = background_result(state="running")
     topics = ["/ros2log/test/temperature"]
