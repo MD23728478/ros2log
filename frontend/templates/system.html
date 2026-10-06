@@ -7,8 +7,6 @@
     {% include "sidebar.html" %}
 
     <main class="app-dashboard-main">
-      <h1 class="app-dashboard-title">System</h1>
-
       <section class="system-section" aria-labelledby="performance-title">
         <header class="system-section-header">
           <h2 id="performance-title">Performance</h2>
@@ -33,14 +31,14 @@
                 <div class="performance-metric-heading">
                   <span>CPU</span><strong data-role="cpu-value">—</strong>
                 </div>
-                <svg class="performance-chart" data-role="cpu-chart" viewBox="0 0 300 80" role="img" aria-label="Recent CPU usage"></svg>
+                <svg class="performance-chart" data-role="cpu-chart" viewBox="0 0 300 80" preserveAspectRatio="none" role="img" aria-label="Recent CPU usage"></svg>
               </div>
 
               <div class="performance-metric">
                 <div class="performance-metric-heading">
                   <span>Memory</span><strong data-role="memory-value">—</strong>
                 </div>
-                <svg class="performance-chart" data-role="memory-chart" viewBox="0 0 300 80" role="img" aria-label="Recent memory usage"></svg>
+                <svg class="performance-chart" data-role="memory-chart" viewBox="0 0 300 80" preserveAspectRatio="none" role="img" aria-label="Recent memory usage"></svg>
                 <p class="performance-detail" data-role="memory-detail">—</p>
               </div>
 
