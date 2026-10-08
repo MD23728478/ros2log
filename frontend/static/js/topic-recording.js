@@ -10,6 +10,7 @@
   const stop = document.getElementById('recording-stop');
   const error = document.getElementById('recording-error');
   const elapsedBadge = document.getElementById('recording-elapsed');
+  const elapsedStorageKey = 'ros2log.recording.elapsedStartedAt';
   let pollId = null;
   let selectedTopics = [];
   let elapsedStartedAt = null;
@@ -19,12 +20,31 @@
     return value === 'running' || value === 'stopping';
   }
 
-  function updateElapsedStart(startedAt) {
-    if (!startedAt) return;
-    const parsed = Date.parse(startedAt);
-    if (!Number.isNaN(parsed)) {
-      elapsedStartedAt = parsed;
+  function readStoredElapsedStart() {
+    try {
+      const value = window.localStorage.getItem(elapsedStorageKey);
+      const parsed = value === null ? NaN : Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    } catch {
+      return null;
     }
+  }
+
+  function storeElapsedStart(value) {
+    try {
+      if (value === null) {
+        window.localStorage.removeItem(elapsedStorageKey);
+      } else {
+        window.localStorage.setItem(elapsedStorageKey, String(value));
+      }
+    } catch {
+      // Ignore storage failures and keep the live timer working.
+    }
+  }
+
+  function setElapsedStart(value) {
+    elapsedStartedAt = value;
+    storeElapsedStart(value);
   }
 
   function selectedTopicLabels() {
@@ -93,8 +113,10 @@
     elapsedBadge.textContent = formatElapsedSeconds(elapsedSeconds);
   }
 
-  function clearElapsedTimer() {
-    elapsedStartedAt = null;
+  function clearElapsedTimer({ clearStorage = true } = {}) {
+    if (clearStorage) {
+      setElapsedStart(null);
+    }
     if (elapsedTimerId) {
       clearInterval(elapsedTimerId);
       elapsedTimerId = null;
@@ -117,7 +139,8 @@
 
     if (isActiveState(current)) {
       if (elapsedStartedAt === null) {
-        elapsedStartedAt = Date.now();
+        const storedElapsedStart = readStoredElapsedStart();
+        setElapsedStart(storedElapsedStart === null ? Date.now() : storedElapsedStart);
       }
       if (!elapsedTimerId) {
         elapsedTimerId = setInterval(updateElapsedBadge, 250);
@@ -127,7 +150,7 @@
         pollId = setInterval(checkStatus, 2000);
       }
     } else {
-      clearElapsedTimer();
+      clearElapsedTimer({ clearStorage: elapsedStartedAt !== null });
       if (pollId) {
         clearInterval(pollId);
         pollId = null;
@@ -136,7 +159,6 @@
   }
 
   function render(data) {
-    updateElapsedStart(data.started_at);
     setState(data.state || 'idle');
     if (data.output) output.textContent = data.output;
   }
@@ -200,6 +222,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      setElapsedStart(Date.now());
       render(data);
     } catch (failure) {
       showError(failure.message);

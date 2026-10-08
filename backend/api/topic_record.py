@@ -1,6 +1,5 @@
 import json
 import re
-from datetime import datetime, timezone
 
 from flask import current_app, jsonify, request
 
@@ -18,29 +17,6 @@ TOPIC_NAME_PATTERN = re.compile(
     r"/[A-Za-z_][A-Za-z0-9_]*(?:/[A-Za-z_][A-Za-z0-9_]*)*"
 )
 PREFIX_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,31}")
-
-
-def _format_started_at(value):
-    if value is None:
-        return None
-
-    started_at = datetime.fromisoformat(value)
-    if started_at.tzinfo is None:
-        started_at = started_at.replace(tzinfo=timezone.utc)
-    return started_at.isoformat()
-
-
-def _latest_started_recording():
-    database = get_database()
-    return database.execute(
-        """
-        SELECT started_at
-        FROM recordings
-        WHERE status = 'started'
-        ORDER BY id DESC
-        LIMIT 1
-        """
-    ).fetchone()
 
 
 def _complete_latest_recording(status):
@@ -105,6 +81,8 @@ def record_start():
         else current_app.config["RECORDING_TIMEOUT_SECONDS"]
     )
 
+    from datetime import datetime, timezone
+
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     recording_name = f"recording-{timestamp}"
     if prefix:
@@ -117,11 +95,6 @@ def record_start():
     )
     database.commit()
 
-    started_at_row = database.execute(
-        "SELECT started_at FROM recordings WHERE output_path = ?",
-        (output_path,),
-    ).fetchone()
-
     try:
         result = ros2_background_command_start(
             "bag", "record", "--output", output_path, "--topics", *topics,
@@ -133,11 +106,7 @@ def record_start():
         status = error.status_code or 503
         return jsonify(error=str(error)), status
 
-    return jsonify(
-        output=output_path,
-        started_at=_format_started_at(started_at_row["started_at"]),
-        **result,
-    ), 201
+    return jsonify(output=output_path, **result), 201
 
 
 @blueprint.get("/record/status")
@@ -148,14 +117,6 @@ def record_status():
         _complete_latest_recording("failed")
         status = error.status_code or 503
         return jsonify(error=str(error)), status
-
-    if result.get("state") in {"running", "stopping"}:
-        started_at_row = _latest_started_recording()
-        if started_at_row is not None:
-            result = {
-                **result,
-                "started_at": _format_started_at(started_at_row["started_at"]),
-            }
 
     if result.get("state") == "finished":
         status = (

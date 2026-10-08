@@ -54,7 +54,6 @@ def dashboard(browser, monkeypatch):
         page=page, monitor_requests=[], recording_requests=[],
         topics=[TEMPERATURE, BATTERY, STATUS],
         recording_state="idle",
-        recording_started_at=None,
         recording_output=None,
     )
 
@@ -67,7 +66,6 @@ def dashboard(browser, monkeypatch):
                 route.fulfill(json={
                     "state": "running",
                     "output": fixture.recording_output,
-                    "started_at": fixture.recording_started_at,
                 })
             else:
                 route.fulfill(status=404, json={"error": "No recording"})
@@ -75,12 +73,7 @@ def dashboard(browser, monkeypatch):
             fixture.recording_requests.append(route.request.post_data_json)
             fixture.recording_state = "running"
             fixture.recording_output = "/storage/recording-20261005-092429"
-            fixture.recording_started_at = "2026-09-16T12:00:00+00:00"
-            route.fulfill(json={
-                "state": "running",
-                "output": fixture.recording_output,
-                "started_at": fixture.recording_started_at,
-            })
+            route.fulfill(json={"state": "running", "output": fixture.recording_output})
         elif url.path == "/api/topic-monitor":
             query = parse_qs(url.query)
             fixture.monitor_requests.append(query)
@@ -163,12 +156,15 @@ def test_recording_timer_survives_navigation(dashboard):
 
     page.clock.fast_forward(65000)
     expect(page.locator("#recording-elapsed")).to_have_text("00:01:05")
+    stored_before = page.evaluate("() => window.localStorage.getItem('ros2log.recording.elapsedStartedAt')")
+    assert stored_before is not None
 
     page.goto("http://ros2log.test/recordings")
     page.goto("http://ros2log.test/")
 
     expect(page.locator("#recording-state")).to_have_text("Running")
     expect(page.locator("#recording-elapsed")).to_have_text("00:01:05")
+    assert page.evaluate("() => window.localStorage.getItem('ros2log.recording.elapsedStartedAt')") == stored_before
 
 
 @pytest.mark.parametrize("window", ["1", "10001", "2.5", ""])
