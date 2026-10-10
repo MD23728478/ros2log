@@ -143,5 +143,10 @@ def system_page():
         active_page="system",
         title="System",
         settings=settings,
-        storage_path=current_app.config["STORAGE_PATH"],
+        storage_path="/",
+        runner_storage_path=(
+            current_app.config["RUNNER_STORAGE_PATH"]
+            if current_app.config["APP_ENV"] == "production"
+            else current_app.config["STORAGE_PATH"]
+        ),
     )

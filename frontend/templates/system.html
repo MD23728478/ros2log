@@ -44,9 +44,9 @@
 
               <div class="performance-metric">
                 <div class="performance-metric-heading">
-                  <span>Storage <code>{{ storage_path }}</code></span><strong data-role="storage-value">—</strong>
+                  <span>{{ "Disk" if target == "application" else "Storage" }} <code data-role="storage-path">{{ storage_path if target == "application" else runner_storage_path }}</code></span><strong data-role="storage-value">—</strong>
                 </div>
-                <div class="performance-bar" role="progressbar" aria-label="Storage usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="performance-bar" role="progressbar" aria-label="{{ 'Disk space available' if target == 'application' else 'Storage usage' }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                   <span data-role="storage-bar"></span>
                 </div>
                 <p class="performance-detail" data-role="storage-detail">—</p>

@@ -159,6 +159,7 @@ def collect_metrics(
         storage = {
             "path": str(storage_path),
             "used_bytes": disk.used,
+            "free_bytes": disk.free,
             "total_bytes": disk.total,
             "percent": _percentage(disk.used, disk.total),
         }

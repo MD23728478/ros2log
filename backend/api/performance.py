@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 from flask import jsonify
 
@@ -13,7 +14,7 @@ def performance():
     targets = {}
 
     try:
-        targets["application"] = {"status": "ok", "metrics": collect_metrics()}
+        targets["application"] = {"status": "ok", "metrics": collect_metrics(storage_path=Path("/"))}
     except MetricsError as error:
         targets["application"] = {"status": "error", "error": str(error)}
 

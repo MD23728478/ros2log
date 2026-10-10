@@ -119,17 +119,16 @@ Use your configured host directory instead of `storage` if you changed it:
 
 ```bash
 mkdir -p storage
-sudo chown "$(id -u):10001" storage
-sudo chmod 2775 storage
+sudo chown "10001:$(id -g)" storage
+sudo chmod 775 storage
 ```
 
-The runner owns the directory, while Flask uses GID 10001. The `2` in `2775`
-keeps new recording folders in that group. Start the runner with `umask 002`
-so Flask can rename and delete those folders. On the host, open a terminal
-where ROS2 and any required workspace are configured, then run:
+This gives Flask access as UID 10001 and the host runner access through its
+group. New recording folders may need additional write permissions for the
+Delete action in the UI. On the host, open a terminal where ROS2 and any
+required workspace are configured, then run:
 
 ```bash
-umask 002
 python3 -m runner.server
 ```
 
