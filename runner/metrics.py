@@ -159,11 +159,12 @@ def collect_metrics(
         storage = {
             "path": str(storage_path),
             "used_bytes": disk.used,
+            "free_bytes": disk.free,
             "total_bytes": disk.total,
             "percent": _percentage(disk.used, disk.total),
         }
-    except (MetricsError, OSError):
-        pass
+    except (MetricsError, OSError) as error:
+        print(f"Storage metrics unavailable for {storage_path}: {error}", flush=True)
 
     try:
         uptime_seconds = _uptime(container)

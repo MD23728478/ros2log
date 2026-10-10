@@ -100,6 +100,23 @@ def test_start_recording_uses_configured_storage_path(app, client, start_command
     assert start_command.call_args.args[3] == response.get_json()["output"]
 
 
+def test_production_start_displays_host_path_without_changing_database(
+    app, client, start_command, tmp_path
+):
+    app.config["APP_ENV"] = "production"
+    app.config["RUNNER_STORAGE_PATH"] = tmp_path / "bags"
+    start_command.return_value = background_result()
+
+    response = client.post("/api/record/start", json={"topics": ["/chatter"]})
+
+    output = response.get_json()["output"]
+    assert response.get_json()["display_output"] == str(
+        tmp_path / "bags" / output.removeprefix("/storage/")
+    )
+    with app.app_context():
+        assert get_database().execute("SELECT output_path FROM recordings").fetchone()[0] == output
+
+
 def test_start_recording_uses_prefix_in_output_path(app, client, start_command):
     start_command.return_value = background_result(state="running")
     topics = ["/ros2log/test/temperature"]

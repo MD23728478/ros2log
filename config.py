@@ -14,6 +14,7 @@ PERFORMANCE_POLL_INTERVAL_SECONDS = 300  # Seconds between browser metric polls.
 
 # These settings depend on Docker, host paths, or other settings.
 STORAGE_PATH = Path("/storage")  # Container path; host mount is set in compose.yaml, and docker/Dockerfile creates it.
+RUNNER_STORAGE_PATH = Path("./storage")  # Host path in production; relative to the repository.
 SERVER_ADDRESS = "0.0.0.0"  # Must listen on all container interfaces for Compose port forwarding.
 SERVER_PORT = 5000  # Also set in compose.yaml ports and docker/Dockerfile EXPOSE.
 DEBUG = APP_ENV == "development"  # Follows the selected application environment.

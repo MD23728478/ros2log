@@ -1,293 +1,193 @@
-# Development documentation
+# DOCUMENTATION
 
-## Project structure
+This document describes the current code, its contracts, and the places to change when adding behavior. [README.md](README.md) is the operator setup guide. Code is the source of truth if a deployment differs from the defaults here.
+
+## How the application fits together
 
 ```text
-backend/
-  app.py              Flask application factory
-  pages.py            HTML routes
-  health.py           Docker healthcheck route
-  api/                 JSON API routes
-  database.py          Request-scoped SQLite connections
-  schema.sql           Idempotent database schema
-frontend/
-  templates/           Jinja templates
-  static/              CSS and JavaScript
-docker/
-  Dockerfile           Flask application image
-  ros2.Dockerfile      Jazzy development image
-test/                   Pytest tests
-config.py               Project settings
-compose.yaml            Production and development services
-runner/                  ROS 2 command client and runner server
+Browser
+  ├─ HTML and static assets ← Flask pages (`backend/pages.py`)
+  └─ JSON requests          → Flask API (`backend/api/`)
+                                  ├─ SQLite and mounted bag files
+                                  └─ runner client (`runner/client.py`)
+                                           │ HTTP
+                                           ▼
+                                    runner server (`runner/server.py`)
+                                           ├─ `ros2` subprocesses
+                                           └─ host/container metrics
 ```
 
-`backend/app.py` registers the page, health, and API blueprints. The API
-blueprint is mounted at `/api`. The development-only `ros2` Compose profile
-runs the runner and continuously publishes random test topics.
+The Flask app runs in the `app` container. In development, Compose also runs a Jazzy `ros2` container with the runner and sample publishers. In production, the runner runs on a ROS 2 host; the app reaches it through `host.docker.internal` by default. The app never runs the ROS CLI itself. The runner provides synchronous commands, one managed background command, health, and metrics over HTTP.
 
-## Add a page
-
-1. Add its route to `backend/pages.py`.
-2. Add its template under `frontend/templates/`.
-3. Extend `base.html` instead of repeating the page shell.
-4. Add a focused route test under `test/`.
-
-```python
-@blueprint.get("/about")
-def about():
-    return render_template("about.html")
-```
-
-```html
-{% extends "base.html" %}
-
-{% block content %}
-  <h1>About</h1>
-{% endblock %}
-```
-
-## Add an API endpoint
-
-1. Add a clearly named module under `backend/api/`.
-2. Import the shared `blueprint` from `backend.api`.
-3. Define its route without `/api`; the registered prefix supplies it.
-4. Import the module at the bottom of `backend/api/__init__.py`.
-5. Test status codes and exact JSON shapes.
-
-```python
-from flask import jsonify
-
-from backend.api import blueprint
-
-
-@blueprint.get("/customers")
-def customers():
-    return jsonify(customers=[])
-```
-
-### Recording metadata API
-
-`GET /api/recordings/<recording_id>/metadata` returns parsed ROS 2 bag
-information for a completed recording. The integer ID is the existing
-`recordings.id` primary key created when `/api/record/start` inserts the
-recording. The recordings page uses this same ID for its rename and delete
-requests; it is not a filename supplied by the browser.
-
-The endpoint looks up the recording's path under `STORAGE_PATH` in the database and
-reads its `metadata.yaml`. It never accepts a filesystem path. Metadata schema
-versions 4 through 9 are supported. The response groups the common fields in
-`summary`, topic and split-bag information in `topics` and `files`, and ROS
-diagnostics such as QoS profiles, type hashes, custom data, and schema version
-under `advanced` fields. Exact nanosecond values are JSON strings so browser
-clients do not lose integer precision.
-
-Recordings that were copied into `STORAGE_PATH` without a corresponding database
-row do not have a recording ID and cannot be queried through this endpoint.
-
-Errors use the usual `{"error": "..."}` response: `404` for a missing database
-row, directory, or metadata file; `409` while a recording is active; `422` for
-invalid or unsupported metadata; and `500` for an unexpected read failure.
-
-## Run a ROS 2 command
-
-Routes may use the generic synchronous command helper:
-
-```python
-from runner.client import ros2_command
-
-result = ros2_command("node", "list")
-```
-
-Arguments are passed directly to `ros2` without a shell. Commands must finish
-before `ROS2_COMMAND_TIMEOUT` by default; background process management is not
-implemented. For commands such as `topic hz` and `topic bw`, the optional
-`capture_on_timeout=True` argument stops the command after `timeout_seconds`
-and returns its captured output with `return_code: 124` and `timed_out: true`.
-Commands that finish earlier return their actual exit code and
-`timed_out: false`. Without this option, command timeouts still return a runner
-HTTP 504 error. The runner uses unbuffered Python output so measurements are
-available before the command ends. Both the app and runner need this update.
-
-`GET /api/ros2/health` checks whether the HTTP runner responds. It returns
-`200` with `{"status": "ok"}` or `503` with `{"status": "unavailable"}`.
-
-## System performance
-
-`GET /api/performance` combines live metrics from the application container
-with `GET /metrics` on the existing ROS runner. Metrics requests do not use a
-ROS command or the background-command slot. The System page polls according to
-`PERFORMANCE_POLL_INTERVAL_SECONDS` (five minutes by default) on every loaded
-application page and keeps at most 30 samples in browser session storage. No
-performance history is stored in SQLite.
-
-### Run a background ROS 2 command
-
-The runner manages one background command at a time. Starting another while it
-is active returns `409`. A finished command is replaced by the next start.
-
-```python
-from runner.client import (
-    ros2_background_command_start,
-    ros2_background_command_status,
-    ros2_background_command_stop,
-)
-
-command = ros2_background_command_start(
-    "bag",
-    "record",
-    "--output",
-    "/storage/recordings/example",
-    "/example/topic",
-    timeout_seconds=3600,
-)
-command = ros2_background_command_status()
-command = ros2_background_command_stop()
-```
-
-| Method | Path | Behavior |
+| Area | Main files | Responsibility |
 | --- | --- | --- |
-| `POST` | `/background-command` | Starts a command and returns `201` with its state |
-| `GET` | `/background-command` | Returns its state and output |
-| `POST` | `/background-command/stop` | Stops it and returns its final state |
+| Configuration | `config.py`, `compose.yaml`, `docker/` | Mode, ports, paths, images, mounts, startup |
+| Flask setup | `backend/app.py`, `backend/health.py` | App factory, blueprints, health check |
+| HTML | `backend/pages.py`, `frontend/templates/` | Dashboard, Recordings, System pages |
+| JSON API | `backend/api/` | Topic discovery, monitoring, recording, metadata, performance |
+| Persistence | `backend/database.py`, `backend/schema.sql` | SQLite connections and schema |
+| ROS boundary | `runner/client.py`, `runner/server.py` | HTTP protocol and ROS subprocess lifecycle |
+| Metrics | `runner/metrics.py` | CPU, memory, uptime, and filesystem readings |
+| Browser behavior | `frontend/static/js/` | Fetching, UI state, polling, rendering |
+| Tests | `test/` | Flask, runner, metadata, and optional browser coverage |
 
-TL;DR: The runner owns one background ROS 2 command at a time. Start, inspect,
-or stop it without an ID. Its final state remains available until it is replaced
-or the runner restarts.
+`create_app()` loads uppercase values from `config.py`, initializes the database, then registers the page, health, and API blueprints. All API routes use the `/api` prefix supplied by the app factory. The runner routes have no `/api` prefix.
 
-## Topic Monitor API
+## Configuration and runtime
 
-`GET /api/topic-monitor?topic=/ros2log/test/temperature` measures frequency
-and bandwidth for the named topic through the existing HTTP runner. The `topic` query
-parameter is required and must be a fully qualified name beginning with `/`.
-There is no default topic or sample-data fallback.
+Edit settings in `config.py`. It defines `APP_ENV` (`development` or `production`), ports and addresses, the ROS executable and timeouts, storage paths, database mode, monitoring window, and browser performance poll interval. Several values are derived when the module is imported: `DEBUG`, logging options, `ROS2_RUNNER_ADDRESS`, and `DATABASE`. If you change a value on a live process, restart that process. Both Docker images copy `config.py` at build time, so rebuild them after changing it.
 
-The optional `window` query parameter sets the maximum number of recent messages
-used by each ROS measurement command, for example:
-`GET /api/topic-monitor?topic=/ros2log/test/temperature&window=250`.
-It must be a whole number from 2 to 10000, and defaults to 100 when omitted.
-Empty, invalid, out-of-range, and repeated `window` parameters return HTTP 400
-before any ROS command starts. The lower bound allows the bandwidth command to
-retain at least two messages; the upper bound limits its retained sample count.
-The default and limits live in `config.py` under `TOPIC_MONITOR_WINDOW` and are
-also rendered into the dashboard form.
+The `app` image runs as UID/GID `10001:10001`. `docker/start.sh` uses Flask's development server in development and Gunicorn in production; its lowercase `gunicorn_*` environment variables tune workers, threads, and timeouts. The `ros2` development image starts the runner and a publisher for three `/ros2log/test/*` topics. The host runner must be started from an environment where the intended ROS installation and workspace are sourced. `ROS2_EXECUTABLE_PATH = None` selects `ros2` from `PATH`; a configured executable path applies to both finite and background commands.
 
-The response has this shape (the numbers shown here are illustrative):
+The runner defaults to listening on `0.0.0.0:8765`; the app connects to `ros2:8765` in development or `host.docker.internal:8765` in production. `compose.yaml` supplies the production host alias. The runner HTTP server has no authentication layer; treat its listen address and network reachability as part of deployment configuration.
 
-```json
-{
-  "source": "ros2",
-  "topic": "/ros2log/test/temperature",
-  "window": 100,
-  "frequency_hz": 2.0,
-  "bandwidth_bytes_per_second": 32.0
-}
-```
+### Storage is one physical directory with two path names
 
-The API checks that the topic exists using `ros2 topic type`, then runs
-`ros2 topic hz --wall-time` and `ros2 topic bw` sequentially. Each measurement
-uses the requested message window and a five-second command budget (or
-`ROS2_COMMAND_TIMEOUT`, if shorter). Requests normally take about ten seconds
-plus the initial topic lookup. Startup and discovery are included in each
-measurement budget, so slow or inactive topics can produce insufficient data.
-The window is a message count, not a duration or a promise to collect that many
-messages. Increasing it does not extend the command budget. The response's
-`window` field reports the requested limit, not the actual number received.
+| Process | Path setting | Default | Use |
+| --- | --- | --- | --- |
+| Flask container | `STORAGE_PATH` | `/storage` | SQLite `app.db`, listing, metadata, rename, delete |
+| Production host runner | `RUNNER_STORAGE_PATH` | `./storage` beside `config.py` | `ros2 bag record` output and runner disk metric |
+| Development runner container | `STORAGE_PATH` | `/storage` | Shared mounted bag output and runner disk metric |
 
-The latest complete statistics line from each command is parsed. Frequency
-is in Hz (messages per second). Bandwidth is serialized message bytes per
-second, not bits per second or total network traffic including DDS overhead.
-ROS's decimal units are normalized: 1 KB/s = 1000 B/s, 1 MB/s = 1000000 B/s.
-These are receiving measurements from two successive sampling periods;
-resource limits and QoS can make them differ from the publisher's rate.
-Message payloads are not returned. See the ROS implementations of
-[hz](https://github.com/ros2/ros2cli/blob/jazzy/ros2topic/ros2topic/verb/hz.py)
-and [bw](https://github.com/ros2/ros2cli/blob/jazzy/ros2topic/ros2topic/verb/bw.py).
+The Compose bind mount maps the host directory to `/storage` in the app container (and in the development runner container). In production, Flask builds a recording name under `STORAGE_PATH`; the runner translates the `--output` argument of `bag record` to the corresponding path under `RUNNER_STORAGE_PATH`. This translation only occurs for production background `bag record` commands. The runner resolves a relative host path against the directory containing `config.py`, creates the host storage directory when starting a recording or collecting production metrics, and reports its resolved path in metrics.
 
-Responses use `Cache-Control: no-store`. The UI should wait for a request to
-finish before requesting another sample, and show missing measurements as
-unavailable rather than treating them as zero.
-Check topics in the topic list, choose one in the monitor dropdown, and set the
-message window before measuring. The same checked topics remain available to
-the recording controls; choosing a monitor topic does not change that selection.
-Searching the list or checking another topic preserves the active monitor topic
-and reading. Removing the active topic switches to the first remaining selection
-and clears its old reading; removing every selection disables the monitor.
+SQLite stores the **container** path such as `/storage/recording-20261010-120000`. The production dashboard and Recordings page derive a host display path from that value; there is no second database path. Keep the host side of the Compose mount and `RUNNER_STORAGE_PATH` pointed at the same physical directory. If the container path changes, existing database rows still contain the old absolute path; moving the files alone does not rewrite those rows. Moving `STORAGE_PATH` also moves the configured `app.db` path. The Flask UID must be able to write the database and read/manage bag directories, and the host runner user must be able to write bag output. A writable top-level directory does not necessarily make new bag subdirectories writable for Flask's Delete action.
 
-The dashboard provides separate frequency/bandwidth readings and loading/error
-states using the shared dashboard styles in `frontend/static/css/app.css`. Auto
-starts a reading immediately, then waits three seconds after each request finishes
-before starting the next one. Stopping
-Auto lets the current request finish but schedules no further readings.
-Changing the topic or window stops Auto and clears the old result. Any pending
-response for the previous settings is ignored; a new request can start when
-that pending request finishes. Errors clear the readings and stop Auto.
+### SQLite lifecycle
 
-Errors return `{"error": "..."}` with these HTTP status codes:
+`backend/database.py` opens one connection per Flask request context through `get_database()` and closes it at teardown. Call `commit()` after writes. `init_app()` applies `backend/schema.sql` at startup. Its `IF NOT EXISTS` statements create missing objects; they are **not** a migration system for existing table definitions. The `recordings` table stores path, topics JSON, state (`started`, `finished`, or `failed`), and timestamps. A partial unique index allows only one `started` row, matching the runner's single background slot. `PERSIST_DATABASE = False` uses a shared in-memory SQLite URI and a keeper connection; that arrangement is for tests/development, not persistence across restarts or separate Gunicorn workers.
 
-| Status | Meaning |
-| --- | --- |
-| 400 | Missing/invalid topic name or invalid window |
-| 404 | Topic was not discovered |
-| 409 | Topic has multiple message types |
-| 502 | ROS command failed or its output could not be parsed |
-| 503 | Runner could not complete the request, including runner command timeouts |
-| 504 | Not enough traffic to obtain a measurement within the sampling period |
+## HTTP and process contracts
 
-To try the API with the development publishers, start Docker Desktop and run:
+### Flask endpoints
+
+| Method and path | Source | Purpose |
+| --- | --- | --- |
+| `GET /`, `/recordings`, `/system` | `backend/pages.py` | Render pages |
+| `GET /health` | `backend/health.py` | App/container health |
+| `GET /api/ros2/health`, `/api/ros2/status` | `backend/api/ros2.py` | Runner reachability and a separate ROS graph probe |
+| `GET /api/topics` | `backend/api/topic_list.py` | List ROS topics, including hidden topics |
+| `GET /api/topic-monitor` | `backend/api/topic_monitor.py` | Measure one topic's frequency and bandwidth |
+| `POST /api/record/start`, `GET /api/record/status`, `POST /api/record/stop` | `backend/api/topic_record.py` | Start, reconcile, and stop a bag recording |
+| `POST /api/recordings/<id>/rename`, `/delete` | `backend/api/recordings.py` | Manage a saved bag directory and database row |
+| `GET /api/recordings/<id>/metadata` | `backend/api/recording_metadata.py` | Parse a recorded bag's `metadata.yaml` |
+| `GET /api/performance` | `backend/api/performance.py` | Combine app and runner metrics |
+
+Errors generally return JSON with an `error` field. Check each route's status codes before changing a client: callers distinguish invalid input, missing data, conflicts, runner failure, and insufficient ROS traffic. `GET /api/ros2/health` only checks the HTTP runner; `/api/ros2/status` also executes a ROS topic-list probe and distinguishes `available`, `ros2_unavailable`, and `runner_unavailable`.
+
+### Runner endpoints and client helpers
+
+| Method and path | Client helper | Behavior |
+| --- | --- | --- |
+| `GET /health` | `ros2_runner_is_healthy()` | HTTP runner check |
+| `POST /command` | `ros2_command(...)` | Run one finite ROS command |
+| `POST /background-command` | `ros2_background_command_start(...)` | Start one managed process; `409` if busy |
+| `GET /background-command` | `ros2_background_command_status()` | Current/last background state; `404` if never started |
+| `POST /background-command/stop` | `ros2_background_command_stop()` | Stop and wait for the process |
+| `GET /metrics` | `runner_metrics()` | Runner environment and storage filesystem metrics |
+
+The client in `runner/client.py` validates arguments and timeout values, sends JSON over `urllib`, validates response shapes, and raises its own exception types. Commands use `subprocess` argument lists with `shell=False`; pass arguments without a leading `ros2`. For a finite command, `ROS2_COMMAND_TIMEOUT` is the default; the client waits one extra second for the HTTP response. A normal timeout becomes runner HTTP `504`. With `capture_on_timeout=True`, the runner ends the process and returns captured output, `return_code: 124`, and `timed_out: true`. That mode exists for the continuously running `topic hz` and `topic bw` commands. The runner sets `PYTHONUNBUFFERED=1` because the ROS Python CLI must flush a measurement before being stopped. `TimeoutExpired` may contain bytes despite `text=True`; the runner decodes those before returning JSON.
+
+The background slot is in memory and holds at most one process. It captures up to the last 64 KiB of each output stream, with truncation flags. Stop sends SIGINT to the process group, waits up to 30 seconds, then sends SIGKILL if needed. The configured recording timeout invokes the same stop path with reason `timeout`. A finished result remains available until another command replaces it or the runner restarts. The runner prints requests, command launches, and background start/stop/exit events to stdout. It does not print captured command stdout/stderr; those appear in HTTP responses.
+
+### Recording state transition
+
+`POST /api/record/start` validates fully qualified topic names, an optional safe filename prefix, and an optional positive duration bounded by `RECORDING_TIMEOUT_SECONDS`. It inserts a `started` row **before** asking the runner to start `ros2 bag record --output ... --topics ...`. If the runner start call fails, the route deletes that new row. The runner returns `409` when its background slot is busy. The database also has a unique index on `started`; an attempt to insert while a `started` row already exists raises a SQLite integrity error that this route does not currently translate into a JSON conflict. Recording names use timestamps to the second, so a repeated name in that second can also collide with the unique path constraint.
+
+`GET /api/record/status` polls the runner and reconciles the latest `started` database row. A finished process is marked `finished` only if it exited with code zero after a manual stop or timeout; otherwise it is `failed`. Runner status errors also mark an active row failed. `POST /api/record/stop` waits for the stop result and marks a zero-exit recording finished. The runner's in-memory state and SQLite are separate; a runner restart loses the background slot, and a stale `started` row must be reconciled or investigated. The response from start includes the stored container `output` and a production `display_output` for the browser.
+
+The Recordings page reads database rows, calculates directory sizes from the container path, and manages folders through Flask. Rename changes the folder and then the database path. Delete removes the folder and then the row. Metadata lookup requires an existing row; simply copying a bag into storage does not make it appear on the page.
+
+### Recording metadata
+
+`GET /api/recordings/<id>/metadata` looks up the database path, requires a non-active recording, and confines its resolved metadata file to `STORAGE_PATH`. `backend/rosbag_metadata.py` uses `yaml.safe_load` and normalizes ROS bag metadata versions **4–9**. It returns `summary`, `topics`, `files`, and `advanced`; it normalizes QoS policy values and turns nanosecond counts into decimal **strings** as well as seconds where useful, avoiding JavaScript integer precision loss. Versions before 5 use `relative_file_paths`; later versions use the `files` records. Invalid, unsupported, or out-of-storage metadata paths return `422`; missing rows/directories/files return `404`; active recordings return `409`.
+
+### Topic monitor
+
+`GET /api/topic-monitor?topic=/some/topic&window=100` requires a fully qualified topic name. The window defaults to `TOPIC_MONITOR_WINDOW.default` and must be one ASCII whole number within the configured bounds (currently 2–10000); repeats and invalid values return `400`. The lower bound gives the bandwidth command enough messages. The endpoint checks `ros2 topic type` first. Jazzy reports a missing topic as exit code 1 with empty output; other failures are upstream errors. Multiple message types return `409`.
+
+The endpoint samples `ros2 topic hz --wall-time` and then `ros2 topic bw`, each for at most five seconds or `ROS2_COMMAND_TIMEOUT`, whichever is shorter. It parses the latest **complete** statistics line and converts ROS decimal `B`, `KB`, and `MB` per second to bytes per second. The two readings are sequential receiving measurements, so they need not be from the same messages or match the publisher exactly. The requested window is a maximum retained message count, not a sampling duration or an actual received count. Empty or malformed measurements have distinct errors from ROS command failures; too little traffic returns `504`.
+
+## Browser state and rendering
+
+`frontend/templates/base.html` loads Bootstrap, `app.css`, and the performance poller on every page. The dashboard includes topic list, recording controls, and monitor partials. Keep project styling in `frontend/static/css/app.css`; the `bootstrap*.min.*` files are vendored assets. The JavaScript is plain browser JS, organized by page or component.
+
+- `topic-list.js` fetches topics, retains checked topics across search, removes selections that disappear on refresh, and broadcasts `topics:selected`. Recording and monitor controls both subscribe to that event.
+- `topic-monitor.js` keeps one active selected topic. Search and selecting another topic do not clear an unchanged reading. Changing the active topic or window stops Auto and invalidates an in-flight reply using `selectionRevision`. Auto waits for each request to finish, then delays three seconds; it never overlaps measurement requests. Errors clear values and stop Auto.
+- `topic-recording.js` posts start/stop and polls recording status every two seconds while active. Its elapsed timer uses `localStorage`; failure to access browser storage does not break the page. The timer is a UI clock, not the authoritative process duration.
+- `ros2-status.js` checks `/api/ros2/status` repeatedly, roughly every five seconds after each result, without blocking recording controls.
+- `recordings.js` handles rename, delete, and the metadata dialog. It uses recording IDs from rendered rows and writes text through `textContent`.
+- `performance-poller.js` runs on every page, polls at `PERFORMANCE_POLL_INTERVAL_SECONDS`, retains the latest result and at most 30 CPU/memory samples per target in `sessionStorage`, and falls back to in-memory state if browser storage is unavailable. `system.js` renders those events. No performance history is saved in SQLite.
+
+The System page displays container **free space** for filesystem `/` and runner **used space** for the runner's storage filesystem. `runner/metrics.py` calls `shutil.disk_usage(path)`: this measures the filesystem containing the path, not the sum of files in that directory. Two paths on the same physical disk can report the same total/usage. CPU, memory, uptime, and storage may independently be `null` if unavailable; the runner client validates the overall metrics shape. A production runner storage failure is printed with the attempted path, while the UI renders that metric as unavailable. Click **Poll** or wait for the browser interval after restarting processes.
+
+## How to add or change behavior
+
+### Add a JSON endpoint
+
+1. Add a module under `backend/api/`, import the shared `blueprint`, and register a route **without** `/api` in its path.
+2. Import the new module at the bottom of `backend/api/__init__.py`; otherwise its decorators are never registered.
+3. Use `current_app.config` for app settings, `get_database()` for request-scoped SQLite, and a `runner.client` helper for ROS work. Validate input before starting a runner command.
+4. Return explicit JSON and status codes. Test success, invalid input, and relevant runner or filesystem failures in `test/`.
+
+### Add a page or frontend interaction
+
+1. Add the page route in `backend/pages.py`, or add a partial to the existing dashboard if it belongs there.
+2. Extend `frontend/templates/base.html`, use the shared sidebar, and add page-specific JS under `frontend/static/js/` if needed.
+3. Put project styles in `app.css`. Keep shared selection and polling events intact when adding UI controls.
+4. Add a route test and a browser interaction test when timing, selection, or navigation is material.
+
+### Add ROS work
+
+Use `ros2_command()` for a bounded operation. For a command that runs continuously but prints periodic results, supply a finite timeout and `capture_on_timeout=True`; test both early exit and timeout output. A long-running managed operation must use the background helpers and account for the **single slot**. If you change the runner HTTP response or storage argument translation, update both `runner/server.py` and `runner/client.py`, plus their tests. Keep subprocess arguments as a list; do not build a shell command string.
+
+### Change persistence or metadata
+
+Edit `backend/schema.sql` for new installations and design a separate migration for existing databases when changing an existing table. Use `get_database()` and commit writes. Preserve the invariant of one active recording unless you redesign the runner slot and reconciliation together. For metadata format changes, update `backend/rosbag_metadata.py`, its endpoint contract, and versioned fixtures/tests. Preserve path confinement and string handling for precise nanoseconds.
+
+### Change configuration or deployment
+
+Edit `config.py`, then trace derived values, both Dockerfiles, `compose.yaml`, the host runner, and browser settings. Changing a host storage location requires a matching Compose bind mount. Changing the container storage path can invalidate existing database rows and must also account for the persistent database location. Rebuild images that copy config and restart the host runner. The app image's `/storage` ownership at build time does not override permissions of the mounted host directory.
+
+## Test and validation workflow
 
 ```bash
-docker compose --profile development up --build
+# Python suite without collecting the ROS publisher script
+pytest -q test
+
+# Same suite in the app image
+docker compose run --build --rm app pytest -q test
+
+# Node regression checks for the ROS status UI
+node --test test/test_ros2_status_ui.cjs
 ```
 
-Open <http://localhost:5000/api/topic-monitor?topic=/ros2log/test/temperature>.
-Refresh to measure again, or change the topic to `/ros2log/test/battery` or
-`/ros2log/test/status`. The development publisher sends each topic at about
-2 Hz, so frequency should be near 2.0. Bandwidth depends on serialized message
-size. These measurements use traffic generated by a ROS test publisher;
-the same endpoint measures robot topics when the runner is on a ROS host.
+A bare `pytest` from the repository root can collect `docker/ros2/test_topics.py`, which imports `rclpy`; use `pytest test` when ROS Python packages are absent. The Python tests mock the ROS process or exercise the HTTP runner locally, so most do not need a running ROS graph. For a live end-to-end check, run the development profile and use the `/ros2log/test/temperature`, `/battery`, or `/status` publishers (about 2 Hz).
 
-### Browser checks for the monitor
+Optional Playwright checks live in `test/test_topic_monitor_ui.py`; they skip if `playwright.sync_api` is absent. Install Playwright and Chromium, or set `ROS2LOG_BROWSER_CHANNEL=chrome` to use a local Chrome. `ROS2LOG_UI_ARTIFACT_DIR` selects a screenshot output directory. These checks serve the Flask page with simulated API replies and verify selection, Auto timing, errors, timer navigation, and narrow layout; they do not verify a live ROS graph.
 
-Backend and runner tests use the normal pytest setup. The optional browser
-regression tests in `test/test_topic_monitor_ui.py` use Playwright and skip when
-that Python package is absent. Install it in a development/test environment:
+## FAQ and pitfalls
 
-```bash
-python -m pip install playwright
-python -m playwright install chromium
-python -m pytest test/test_topic_monitor_ui.py
-```
+**Why is the runner healthy but ROS marked unavailable?** `/health` only proves the HTTP process responds. `/api/ros2/status` also probes `ros2 topic list`. Check the runner's ROS environment, executable path, domain/discovery settings, and its stdout logs.
 
-To use an installed Chrome instead, set `ROS2LOG_BROWSER_CHANNEL=chrome` when
-running the tests; the Chromium download is then unnecessary. The tests serve
-the real Flask page and its assets while simulating API replies. They cover
-shared topic selection with the dropdown and recording controls, window
-submission/validation, Auto scheduling and Stop, changing settings during a
-pending request, errors, and a narrow monitor column. They do not replace a
-live ROS measurement check. An optional `ROS2LOG_UI_ARTIFACT_DIR` directory
-receives screenshots from the browser checks.
+**Why is runner storage “Not available” after recording?** Inspect `GET /metrics` on the runner and its stdout for `Storage metrics unavailable for <path>: <error>`. The production runner chooses the host path only when its own `APP_ENV` is `production`; otherwise it measures `STORAGE_PATH` (`/storage` by default). Check the config used by the running host process, restart it after changes, and verify the resolved path exists and is accessible. The System page may be showing a cached browser sample until **Poll** runs. Starting a recording creates the directory but does not itself prove `shutil.disk_usage` succeeds. `runner/client.py` also validates the metrics response; a shape mismatch can make the whole runner target unavailable.
 
-## Change the database
+**Why are container and runner disk totals identical?** `shutil.disk_usage` reports filesystem capacity. The container overlay and host storage mount may be backed by the same physical disk. The container card uses `/` and shows available space; the runner card uses its storage path and shows used space. These are not per-directory bag sizes.
 
-1. Add idempotent SQL to `backend/schema.sql`.
-2. Use `get_database()` for request-scoped access.
-3. Commit writes explicitly.
-4. Add focused validation tests.
+**Why does recording appear in SQLite but not on disk, or vice versa?** The row is inserted before the runner starts and deleted if that start call fails. Runner state is in memory, while SQLite persists. A runner restart, path/mount mismatch, permissions, or external file copy can separate them. The Recordings page only lists rows; inspect its container path, the host path, and the runner's startup output. An externally copied bag needs a database row before the page or metadata endpoint can find it.
 
-```python
-from backend.database import get_database
+**Why can Flask read a bag but fail to delete it?** The app runs as UID/GID 10001, and a bind mount uses host permissions. The host runner may create subdirectories without group write permission even if the top-level directory is `775`. `shutil.rmtree` needs write access inside those directories. Review ownership and permissions on the actual recording folder, not only the mount root.
 
-database = get_database()
-rows = database.execute("SELECT * FROM example_items").fetchall()
-```
+**Why does a monitor request take around ten seconds or return insufficient data?** Topic type lookup precedes two sequential, up-to-five-second samples. Discovery time and traffic arrival consume each budget. The browser Auto delay starts only after the request finishes. The `window` controls retained message count; increasing it does not extend the sampling time.
 
-The schema is applied whenever the application starts. A shared in-memory
-database requires the keeper connection stored in `app.extensions` because
-SQLite destroys it after its final connection closes.
+**Why was a command's output kept after a timeout?** `capture_on_timeout=True` is deliberate for `hz` and `bw`, which usually never exit by themselves. In that case `return_code: 124` plus `timed_out: true` is a sampling result, not an early ROS failure. Without that flag, a timeout is an HTTP `504`. The runner forces unbuffered Python output and decodes timeout output that arrives as bytes.
 
-## Frontend
+**Why does a finished recording still show as active, or a new one conflict?** The runner retains its final result until replaced, while SQLite has a unique `started` row. Status polling performs reconciliation. Check `/api/record/status`, the runner's `/background-command`, and the database row. The browser's elapsed timer is local UI state and does not change either source of truth.
 
-Page templates extend `frontend/templates/base.html`. It provides the shared
-layout and loads Bootstrap and `frontend/static/css/app.css`. Keep
-project-specific styling in `app.css`.
+**Why does a metadata file return `422`?** The parser only supports metadata versions 4–9 and validates required fields, QoS forms, and numeric ranges. The endpoint also rejects paths that escape `STORAGE_PATH`. Preserve nanosecond strings when consuming the API; JavaScript numbers cannot represent all such integers exactly.
+
+**Why does a config or frontend change not appear after restart?** Both Docker images copy `config.py`, while the app image copies frontend assets, at build time; rebuild the affected image. The host runner is a separate process and must also restart for its config/code changes. Browser `sessionStorage` may still hold the last System reading until a new poll.
+
+**Why are host CPU or uptime readings unavailable while disk works?** `runner/metrics.py` reads Linux `/proc` and cgroup files for those values. It catches platform read failures separately, so disk usage may still be available on a non-Linux host. Its process-start calculation parses `/proc/1/stat` after the final `)` because process names can contain spaces.
+
+**Why does the test suite fail while importing `rclpy`?** Root-level collection can include `docker/ros2/test_topics.py`. Run `pytest test` for the application suite, or run ROS-dependent checks in the Jazzy image.

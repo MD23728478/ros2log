@@ -6,6 +6,7 @@ import signal
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import config
 from runner.metrics import MetricsError, collect_metrics
@@ -13,6 +14,10 @@ from runner.metrics import MetricsError, collect_metrics
 
 BACKGROUND_OUTPUT_LIMIT = 64 * 1024
 BACKGROUND_STOP_GRACE_SECONDS = 30
+
+
+def host_storage_path() -> Path:
+    return Path(config.__file__).resolve().parent / config.RUNNER_STORAGE_PATH
 
 
 class OutputTail:
@@ -76,6 +81,7 @@ class BackgroundCommand:
             self.return_code = return_code
             self.state = "finished"
             self.deadline_timer.cancel()
+        print(f"Runner background command finished (exit {return_code})", flush=True)
 
     def stop(self, reason: str = "manual") -> None:
         with self.lock:
@@ -90,6 +96,7 @@ class BackgroundCommand:
             self.wait_thread.join()
             return
 
+        print(f"Runner background command stopping ({reason})", flush=True)
         try:
             os.killpg(self.process.pid, signal.SIGINT)
         except ProcessLookupError:
@@ -135,6 +142,20 @@ class BackgroundCommandSlot:
                 and self.command.result()["state"] != "finished"
             ):
                 return None
+            if config.APP_ENV == "production" and arguments[:2] == ["bag", "record"]:
+                arguments = arguments.copy()
+                if "--output" in arguments:
+                    output_index = arguments.index("--output") + 1
+                    if output_index < len(arguments):
+                        output = Path(arguments[output_index])
+                        try:
+                            relative = output.relative_to(config.STORAGE_PATH)
+                        except ValueError:
+                            pass
+                        else:
+                            host_storage_path().mkdir(parents=True, exist_ok=True)
+                            arguments[output_index] = str(host_storage_path() / relative)
+            print(f"Runner background command starting: {arguments}", flush=True)
             process = subprocess.Popen(
                 [config.ROS2_EXECUTABLE_PATH or "ros2", *arguments],
                 shell=False,
@@ -191,6 +212,7 @@ def run_command(
     *,
     capture_on_timeout: bool = False,
 ) -> dict[str, int | str | bool]:
+    print(f"Runner command: {arguments}", flush=True)
     try:
         completed = subprocess.run(
             [config.ROS2_EXECUTABLE_PATH or "ros2", *arguments],
@@ -236,7 +258,15 @@ class CommandHandler(BaseHTTPRequestHandler):
 
         if self.path == "/metrics":
             try:
-                result = collect_metrics()
+                if config.APP_ENV == "production":
+                    storage_path = host_storage_path()
+                    storage_path.mkdir(parents=True, exist_ok=True)
+                    result = collect_metrics(storage_path=storage_path)
+                else:
+                    result = collect_metrics()
+            except OSError as error:
+                self.send_json(500, {"error": f"Could not access runner storage: {error}"})
+                return
             except MetricsError as error:
                 self.send_json(500, {"error": str(error)})
                 return
@@ -346,7 +376,7 @@ class CommandHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format: str, *arguments) -> None:
-        return
+        print(f"Runner request {self.client_address[0]}: {format % arguments}", flush=True)
 
 
 class RunnerServer(ThreadingHTTPServer):

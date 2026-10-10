@@ -61,6 +61,26 @@ def test_recordings_page_lists_saved_recordings(monkeypatch):
     assert b"recording-manage-button" in response.data
 
 
+def test_production_recordings_page_shows_host_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "PERSIST_DATABASE", False)
+    monkeypatch.setattr(config, "DATABASE", "file:host_path_page_test?mode=memory&cache=shared")
+    monkeypatch.setattr(config, "APP_ENV", "production")
+    monkeypatch.setattr(config, "RUNNER_STORAGE_PATH", tmp_path / "bags")
+    application = create_app()
+    with application.app_context():
+        database = get_database()
+        database.execute(
+            "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+            ("/storage/recording-1", "[]", "finished"),
+        )
+        database.commit()
+
+    response = application.test_client().get("/recordings")
+
+    assert str(tmp_path / "bags" / "recording-1").encode() in response.data
+    assert b"/storage/recording-1" not in response.data
+
+
 def test_rename_and_delete_recordings(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "PERSIST_DATABASE", False)
     monkeypatch.setattr(config, "DATABASE", "file:recordings_manage_test?mode=memory&cache=shared")

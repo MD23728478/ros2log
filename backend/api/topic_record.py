@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 
 from flask import current_app, jsonify, request
 
@@ -106,7 +107,13 @@ def record_start():
         status = error.status_code or 503
         return jsonify(error=str(error)), status
 
-    return jsonify(output=output_path, **result), 201
+    display_output = output_path
+    if current_app.config["APP_ENV"] == "production":
+        display_output = str(
+            current_app.config["RUNNER_STORAGE_PATH"]
+            / Path(output_path).relative_to(current_app.config["STORAGE_PATH"])
+        )
+    return jsonify(output=output_path, display_output=display_output, **result), 201
 
 
 @blueprint.get("/record/status")
