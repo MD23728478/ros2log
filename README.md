@@ -40,6 +40,8 @@ Edit settings directly in `config.py`:
 
 - `APP_ENV`: `"development"` or `"production"`.
 - `ROS2_COMMAND_TIMEOUT`: maximum duration of a finite ROS 2 command.
+- `ROS2_EXECUTABLE_PATH`: path to the runner's `ros2` executable; leave as `None`
+  to find `ros2` through `PATH` as before. Applies to finite and background commands.
 - `PERFORMANCE_POLL_INTERVAL_SECONDS`: browser performance refresh interval;
   defaults to 300 seconds.
 - `RECORDING_TIMEOUT_SECONDS`: maximum duration of a recording.

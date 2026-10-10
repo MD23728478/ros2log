@@ -6,6 +6,7 @@ from pathlib import Path
 APP_ENV = "development"  # Selects development or production runner connection.
 PERSIST_DATABASE = True  # Stores SQLite on disk when true; uses memory when false.
 ROS2_RUNNER_PORT = 8765  # Shared by the app client and ROS 2 runner server.
+ROS2_EXECUTABLE_PATH = None  # Set to the ros2 executable path; None uses ros2 on PATH.
 ROS2_COMMAND_TIMEOUT = 30  # Maximum seconds for a synchronous ROS 2 command.
 RECORDING_TIMEOUT_SECONDS = 86400  # Maximum seconds for a bag recording.
 TOPIC_MONITOR_WINDOW = {"default": 100, "min": 2, "max": 10000}  # Message count limits.
