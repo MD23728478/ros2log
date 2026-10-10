@@ -1,6 +1,4 @@
 import json
-import shutil
-from pathlib import Path
 from uuid import uuid4
 
 import config
@@ -63,64 +61,59 @@ def test_recordings_page_lists_saved_recordings(monkeypatch):
     assert b"recording-manage-button" in response.data
 
 
-def test_rename_and_delete_recordings(monkeypatch):
+def test_rename_and_delete_recordings(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "PERSIST_DATABASE", False)
     monkeypatch.setattr(config, "DATABASE", "file:recordings_manage_test?mode=memory&cache=shared")
+    storage_root = tmp_path / "storage"
+    monkeypatch.setattr(config, "STORAGE_PATH", storage_root)
     application = create_app()
     application.config["TESTING"] = True
     client = application.test_client()
 
     recording_name = f"recording-{uuid4().hex}"
     renamed_name = f"{recording_name}-renamed"
-    storage_root = Path("/storage")
     storage_root.mkdir(parents=True, exist_ok=True)
     recording_path = storage_root / recording_name
     renamed_path = storage_root / renamed_name
 
-    shutil.rmtree(recording_path, ignore_errors=True)
-    shutil.rmtree(renamed_path, ignore_errors=True)
     recording_path.mkdir(parents=True)
     (recording_path / "metadata.yaml").write_text("topics: []\n")
 
-    try:
-        with application.app_context():
-            database = get_database()
-            database.execute(
-                "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
-                (f"/storage/{recording_name}", json.dumps(["/ros2log/test/topic"]), "finished"),
-            )
-            database.commit()
-            recording_id = database.execute("SELECT id FROM recordings").fetchone()[0]
-
-        rename_response = client.post(
-            f"/api/recordings/{recording_id}/rename",
-            json={"name": renamed_name},
+    with application.app_context():
+        database = get_database()
+        database.execute(
+            "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+            (str(recording_path), json.dumps(["/ros2log/test/topic"]), "finished"),
         )
-        assert rename_response.status_code == 200
-        assert renamed_path.exists()
+        database.commit()
+        recording_id = database.execute("SELECT id FROM recordings").fetchone()[0]
 
-        with application.app_context():
-            row = get_database().execute(
-                "SELECT output_path FROM recordings WHERE id = ?",
-                (recording_id,),
-            ).fetchone()
-        assert row["output_path"] == str(renamed_path)
+    rename_response = client.post(
+        f"/api/recordings/{recording_id}/rename",
+        json={"name": renamed_name},
+    )
+    assert rename_response.status_code == 200
+    assert renamed_path.exists()
 
-        shutil.rmtree(renamed_path, ignore_errors=True)
-        missing_dir_response = client.post(
-            f"/api/recordings/{recording_id}/rename",
-            json={"name": f"{renamed_name}-missing"},
-        )
-        assert missing_dir_response.status_code == 404
-        assert missing_dir_response.get_json()["error"] == "The recording folder was not found."
+    with application.app_context():
+        row = get_database().execute(
+            "SELECT output_path FROM recordings WHERE id = ?",
+            (recording_id,),
+        ).fetchone()
+    assert row["output_path"] == str(renamed_path)
 
-        delete_response = client.post(f"/api/recordings/{recording_id}/delete")
-        assert delete_response.status_code == 200
-        assert not renamed_path.exists()
+    renamed_path.rename(recording_path)
+    missing_dir_response = client.post(
+        f"/api/recordings/{recording_id}/rename",
+        json={"name": f"{renamed_name}-missing"},
+    )
+    assert missing_dir_response.status_code == 404
+    assert missing_dir_response.get_json()["error"] == "The recording folder was not found."
 
-        with application.app_context():
-            count = get_database().execute("SELECT COUNT(*) FROM recordings").fetchone()[0]
-        assert count == 0
-    finally:
-        shutil.rmtree(recording_path, ignore_errors=True)
-        shutil.rmtree(renamed_path, ignore_errors=True)
+    delete_response = client.post(f"/api/recordings/{recording_id}/delete")
+    assert delete_response.status_code == 200
+    assert not renamed_path.exists()
+
+    with application.app_context():
+        count = get_database().execute("SELECT COUNT(*) FROM recordings").fetchone()[0]
+    assert count == 0

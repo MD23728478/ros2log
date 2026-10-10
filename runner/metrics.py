@@ -5,10 +5,11 @@ import socket
 import time
 from pathlib import Path
 
+import config
+
 
 CGROUP_ROOT = Path("/sys/fs/cgroup")
 PROC_ROOT = Path("/proc")
-STORAGE_PATH = Path("/storage")
 
 
 class MetricsError(RuntimeError):
@@ -127,8 +128,10 @@ def _uptime(container: bool) -> float:
 
 
 def collect_metrics(
-    *, sample_seconds: float = 0.1, storage_path: Path = STORAGE_PATH
+    *, sample_seconds: float = 0.1, storage_path: Path | None = None
 ) -> dict:
+    if storage_path is None:
+        storage_path = config.STORAGE_PATH
     if not isinstance(sample_seconds, (int, float)) or not math.isfinite(sample_seconds) or sample_seconds <= 0:
         raise MetricsError("CPU sample duration must be greater than zero")
 

@@ -12,6 +12,7 @@ blueprint = Blueprint("pages", __name__)
 SYSTEM_CONFIG = (
     ("APP_ENV", "Application environment", "text"),
     ("PERSIST_DATABASE", "Persistent database", "boolean"),
+    ("STORAGE_PATH", "Storage path", "code"),
     ("SERVER_ADDRESS", "Server address", "code"),
     ("SERVER_PORT", "Server port", "number"),
     ("ROS2_RUNNER_ADDRESS", "ROS 2 runner address", "code"),
@@ -159,4 +160,5 @@ def system_page():
         active_page="system",
         title="System",
         settings=settings,
+        storage_path=current_app.config["STORAGE_PATH"],
     )
