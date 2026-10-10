@@ -3,16 +3,10 @@
 {% block title %}Home{% endblock %}
 
 {% block content %}
-  {% include "header.html" %}
-
   <div class="app-dashboard">
     {% include "sidebar.html" %}
 
-    <main class="app-dashboard-main">
-      <div class="dashboard-heading">
-        <h1 class="app-dashboard-title">Dashboard</h1>
-        <span id="ros2-status" class="ros2-status" data-state="checking" role="status" aria-atomic="true">CHECKING</span>
-      </div>
+    <main class="app-dashboard-main" data-bs-theme="dark">
       <div class="dashboard-tools">
         {% include "topic_list.html" %}
         {% include "topic_recording.html" %}

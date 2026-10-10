@@ -3,6 +3,10 @@ body {
 	min-height: 100%;
 }
 
+html {
+	font-size: clamp(16px, calc(14px + 0.16vw), 18px);
+}
+
 body {
 	margin: 0;
 	background: #2a2a2a;
@@ -17,87 +21,64 @@ body {
 	background: #2a2a2a;
 }
 
-.app-header {
+.app-dashboard {
 	display: flex;
-	align-items: center;
-	justify-content: flex-start;
-	padding: 1.25rem 2rem;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	flex: 1;
 }
 
-.app-brand {
-	display: inline-flex;
-	align-items: center;
+.app-sidebar {
 	flex: 0 0 auto;
+	padding: 1.5rem;
+	border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.app-brand-mark {
+.app-sidebar-title {
 	display: flex;
 	flex-direction: column;
-	justify-content: center;
 	width: fit-content;
-	min-width: 6.75rem;
-	max-width: 10rem;
-	min-height: 5.25rem;
-	padding: 0.7rem 0.85rem;
+	gap: 0.35rem;
+	margin-bottom: 1.5rem;
+	padding: 0.875rem 0.75rem;
 	border-radius: 0.45rem;
 	background: #2f3138;
-	overflow: hidden;
-	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+	color: #ffffff;
 }
 
-.app-brand-mark span {
-	font-size: 1.05rem;
+.app-sidebar-title span {
+	font-size: 1.5rem;
 	font-weight: 700;
 	letter-spacing: 0.04em;
 	line-height: 1;
 	white-space: nowrap;
 }
 
-.app-brand-mark small {
-	margin-top: 0.2rem;
-	font-size: 0.48rem;
-	line-height: 1.05;
+.app-sidebar-title small {
+	font-size: 0.625rem;
+	line-height: 1.2;
 	color: rgba(242, 242, 242, 0.72);
 	white-space: nowrap;
-}
-
-.app-dashboard {
-	display: flex;
-	flex: 1;
-	padding: 0 0 1.5rem;
-}
-
-.app-sidebar {
-	width: 15.75rem;
-	padding: 1.5rem 1rem 1.5rem 1.5rem;
-	border-right: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.app-sidebar-title {
-	margin-bottom: 1rem;
-	font-size: 1rem;
-	color: rgba(242, 242, 242, 0.85);
 }
 
 .app-sidebar-nav {
 	display: flex;
 	flex-direction: column;
-	gap: 0.35rem;
+	gap: 0.5rem;
 }
 
 .app-sidebar-link {
 	display: block;
-	padding: 0.35rem 0.5rem;
-	border-radius: 0.35rem;
+	padding: 0.5rem 0.75rem;
 	color: rgba(242, 242, 242, 0.78);
 	text-decoration: none;
-	transition: background-color 0.15s ease, color 0.15s ease;
+	transition: color 0.15s ease;
 }
 
-.app-sidebar-link:hover,
+.app-sidebar-link:hover {
+	color: #ffffff;
+}
+
 .app-sidebar-link.active {
-	background: rgba(255, 255, 255, 0.05);
+	font-weight: 700;
 	color: #ffffff;
 }
 
@@ -112,18 +93,6 @@ body {
 	font-size: 1.9rem;
 	font-weight: 400;
 	color: rgba(242, 242, 242, 0.92);
-}
-
-.dashboard-heading {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 0.75rem 1rem;
-	margin-bottom: 1.5rem;
-}
-
-.dashboard-heading .app-dashboard-title {
-	margin: 0;
 }
 
 .ros2-status {
@@ -143,7 +112,8 @@ body {
 
 .dashboard-tools {
 	display: grid;
-	grid-template-columns: minmax(12rem, 16rem) minmax(0, 42rem);
+	grid-template-columns: minmax(0, 1fr) clamp(18rem, 24vw, 24rem);
+	grid-template-areas: "recording topics" "monitor topics";
 	gap: 1rem;
 	align-items: start;
 }
@@ -151,14 +121,38 @@ body {
 .topic-list,
 .topic-monitor,
 .topic-recording {
+	min-width: 0;
 	padding: 1rem;
 	border-radius: 0.6rem;
 	background: rgba(255,255,255,0.02);
 	border: 1px solid rgba(255,255,255,0.03);
 }
 
-.topic-recording { grid-column: 2; }
-.topic-list { grid-row: 1 / span 2; align-self: stretch; }
+.topic-recording {
+	grid-area: recording;
+	display: flex;
+	flex-direction: column;
+	min-height: clamp(20rem, 34vh, 30rem);
+	padding: 1.5rem;
+}
+
+.recording-body {
+	flex: 1;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+	gap: 2rem;
+}
+
+.recording-settings {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: 0.5rem;
+	min-width: 0;
+}
+.recording-settings h3 { margin-bottom: 1rem; }
+.topic-monitor { grid-area: monitor; }
+.topic-list { grid-area: topics; align-self: stretch; }
 
 .topic-recording-header,
 .topic-list-header {
@@ -169,17 +163,16 @@ body {
 }
 
 .topic-recording-header {
+	justify-content: flex-start;
+	flex-wrap: wrap;
 	gap: 0.75rem;
+	margin-bottom: 1.5rem;
 }
 
 .recording-elapsed {
-	padding: 0.2rem 0.5rem;
-	border: 1px solid rgba(255,255,255,0.10);
-	border-radius: 999px;
-	background: rgba(255,255,255,0.03);
-	color: #d9f8dd;
-	font-size: 0.72rem;
-	font-weight: 700;
+	margin-bottom: 1.5rem;
+	font-size: clamp(2.5rem, 5vw, 3.5rem);
+	font-variant-numeric: tabular-nums;
 	letter-spacing: 0.04em;
 	line-height: 1.2;
 	white-space: nowrap;
@@ -248,6 +241,7 @@ body {
 .topic-list-item .form-check-label {
 	flex: 1 1 auto;
 	margin: 0;
+	overflow-wrap: anywhere;
 	cursor: pointer;
 }
 
@@ -255,16 +249,14 @@ body {
 .topic-list-error { color: #ffb3b3; }
 
 .recording-state {
-	padding: 0.15rem 0.45rem;
-	border: 1px solid rgba(255,255,255,0.12);
-	border-radius: 0.35rem;
+	margin-bottom: 1rem;
 	color: rgba(242,242,242,0.65);
-	font-size: 0.75rem;
+	font-size: 1.1rem;
+	font-weight: 600;
+	line-height: 1.2;
 }
 
 .recording-state.running {
-	border-color: rgba(34,197,94,0.35);
-	background: rgba(34,197,94,0.1);
 	color: #8de5aa;
 }
 
@@ -280,7 +272,6 @@ body {
 .topic-monitor-field label { display: block; margin-bottom: 0.25rem; }
 .topic-monitor-field input,
 .topic-monitor-field select { min-width: 0; background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.08); color: #f2f2f2; }
-.topic-monitor-form select option { color: #2a2a2a; }
 .topic-monitor-actions { display: flex; grid-column: 1 / -1; gap: 0.5rem; }
 
 .topic-monitor-row { padding: 0.25rem 0; color: rgba(242,242,242,0.92); }
@@ -292,11 +283,16 @@ body {
 }
 
 .recordings-page-panel {
-	max-width: 64rem;
+	background: rgba(255, 255, 255, 0.02);
+	border: 1px solid rgba(255, 255, 255, 0.03);
+	border-radius: 0.6rem;
+	overflow: hidden;
 }
 
 .recordings-page-header {
-	margin-bottom: 0.9rem;
+	padding: 1rem;
+	background: rgba(255, 255, 255, 0.035);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .recordings-page-title {
@@ -317,12 +313,9 @@ body {
 
 .recordings-table {
 	width: 100%;
-	min-width: 58rem;
+	min-width: 44rem;
 	border-collapse: collapse;
 	border-spacing: 0;
-	background: rgba(255, 255, 255, 0.02);
-	border-radius: 0.6rem;
-	overflow: hidden;
 }
 
 .recordings-table thead th {
@@ -596,23 +589,32 @@ body {
 
 .btn.loading { opacity: 0.95; }
 
+@media (max-width: 62rem) {
+	.dashboard-tools {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-areas: "topics" "recording" "monitor";
+	}
+}
+
 @media (max-width: 48rem) {
-	.dashboard-tools { grid-template-columns: 1fr; }
-	.topic-list { grid-row: auto; }
-	.topic-recording { grid-column: auto; }
+	.app-dashboard { flex-direction: column; }
+	.app-sidebar {
+		padding: 1rem;
+		border-right: 0;
+		border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	}
+	.app-sidebar-title { margin-bottom: 1rem; }
+	.app-sidebar-nav { flex-direction: row; flex-wrap: wrap; gap: 0.25rem 0.5rem; }
+	.app-dashboard-main { padding: 1rem; }
+	.topic-recording-row { flex-wrap: wrap; }
+	.recording-duration-fields { flex-wrap: wrap; }
 	.topic-monitor-form { grid-template-columns: 1fr; }
 }
 
 .recording-status-block {
-	text-align: center;
-	padding: 1rem 0 1.25rem;
-}
-
-.recording-status-block .recording-state {
-	display: inline-block;
-	font-size: 0.9rem;
-	padding: 0.35rem 1rem;
-	margin-bottom: 1rem;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
 }
 
 .recording-prefix {
@@ -664,9 +666,9 @@ body {
 }
 
 .btn-record-toggle {
-	padding: 0.85rem 2.25rem;
-	font-size: 1.05rem;
-	border-radius: 999px;
+	padding: 0.65rem 1.25rem;
+	font-size: 1rem;
+	border-radius: 0.35rem;
 	border: 1px solid rgba(255, 255, 255, 0.15);
 	background: rgba(255, 255, 255, 0.12);
 	color: #f2f2f2;
@@ -685,13 +687,13 @@ body {
 }
 
 .recording-controls {
+	margin-top: auto;
 	display: flex;
-	justify-content: center;
+	flex-wrap: wrap;
 	gap: 0.5rem;
 }
 
 .system-section {
-	max-width: 72rem;
 	margin-bottom: 1.5rem;
 	padding: 1rem;
 	border: 1px solid rgba(255, 255, 255, 0.05);
@@ -777,6 +779,10 @@ body {
 	overflow-wrap: anywhere;
 }
 
+.performance-card-header {
+	flex-wrap: wrap;
+}
+
 .performance-card-status {
 	color: #8de5aa;
 }
@@ -801,7 +807,7 @@ body {
 .performance-chart {
 	display: block;
 	width: 100%;
-	height: 5rem;
+	height: clamp(4rem, 8vh, 6rem);
 	border-radius: 0.35rem;
 	background: rgba(255, 255, 255, 0.025);
 }
@@ -871,6 +877,20 @@ body {
 	grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
 	gap: 0.7rem;
 	margin: 0;
+}
+
+.system-config-item span {
+	display: block;
+	margin-top: 0.35rem;
+	overflow-wrap: anywhere;
+	color: rgba(242, 242, 242, 0.38);
+	font-size: 0.68rem;
+	letter-spacing: 0.02em;
+}
+
+.system-config-code {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 0.85rem;
 }
 
 @media (max-width: 62rem) {

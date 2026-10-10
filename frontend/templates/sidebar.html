@@ -1,5 +1,8 @@
 <aside class="app-sidebar">
-  <div class="app-sidebar-title">Navigation</div>
+  <div class="app-sidebar-title">
+    <span>ROS2LOG</span>
+    <small>Powered by 3200_30</small>
+  </div>
 
   <nav class="app-sidebar-nav" aria-label="Navigation">
     <a class="app-sidebar-link{% if active_page == 'dashboard' %} active{% endif %}" href="{{ url_for('pages.index') }}"{% if active_page == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
