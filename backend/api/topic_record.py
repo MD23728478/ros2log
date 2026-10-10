@@ -1,6 +1,5 @@
 import json
 import re
-from datetime import datetime, timezone
 
 from flask import current_app, jsonify, request
 
@@ -81,6 +80,8 @@ def record_start():
         if duration_seconds is not None
         else current_app.config["RECORDING_TIMEOUT_SECONDS"]
     )
+
+    from datetime import datetime, timezone
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     recording_name = f"recording-{timestamp}"

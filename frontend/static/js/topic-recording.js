@@ -10,10 +10,42 @@
   const stop = document.getElementById('recording-stop');
   const error = document.getElementById('recording-error');
   const elapsedBadge = document.getElementById('recording-elapsed');
+  const elapsedStorageKey = 'ros2log.recording.elapsedStartedAt';
   let pollId = null;
   let selectedTopics = [];
   let elapsedStartedAt = null;
   let elapsedTimerId = null;
+
+  function isActiveState(value) {
+    return value === 'running' || value === 'stopping';
+  }
+
+  function readStoredElapsedStart() {
+    try {
+      const value = window.localStorage.getItem(elapsedStorageKey);
+      const parsed = value === null ? NaN : Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function storeElapsedStart(value) {
+    try {
+      if (value === null) {
+        window.localStorage.removeItem(elapsedStorageKey);
+      } else {
+        window.localStorage.setItem(elapsedStorageKey, String(value));
+      }
+    } catch {
+      // Ignore storage failures and keep the live timer working.
+    }
+  }
+
+  function setElapsedStart(value) {
+    elapsedStartedAt = value;
+    storeElapsedStart(value);
+  }
 
   function selectedTopicLabels() {
     if (!selectedTopics.length) return 'Select one or more topics from the list.';
@@ -22,10 +54,10 @@
   }
 
   function syncTopic() {
-    topic.textContent = state.dataset.state === 'running'
+    topic.textContent = isActiveState(state.dataset.state)
       ? (selectedTopics.length ? selectedTopics.join(', ') : 'Recording in progress.')
       : selectedTopicLabels();
-    start.disabled = state.dataset.state === 'running' || !selectedTopics.length;
+    start.disabled = isActiveState(state.dataset.state) || !selectedTopics.length;
   }
 
   function showError(message = '') {
@@ -81,8 +113,10 @@
     elapsedBadge.textContent = formatElapsedSeconds(elapsedSeconds);
   }
 
-  function clearElapsedTimer() {
-    elapsedStartedAt = null;
+  function clearElapsedTimer({ clearStorage = true } = {}) {
+    if (clearStorage) {
+      setElapsedStart(null);
+    }
     if (elapsedTimerId) {
       clearInterval(elapsedTimerId);
       elapsedTimerId = null;
@@ -95,17 +129,18 @@
     state.dataset.state = current;
     state.className = `recording-state ${current}`;
     state.textContent = current[0].toUpperCase() + current.slice(1);
-    start.disabled = current === 'running' || !selectedTopics.length;
+    start.disabled = isActiveState(current) || !selectedTopics.length;
     stop.disabled = current !== 'running';
-    prefix.disabled = current === 'running' || current === 'stopping';
-    hours.disabled = current === 'running' || current === 'stopping';
-    minutes.disabled = current === 'running' || current === 'stopping';
-    seconds.disabled = current === 'running' || current === 'stopping';
+    prefix.disabled = isActiveState(current);
+    hours.disabled = isActiveState(current);
+    minutes.disabled = isActiveState(current);
+    seconds.disabled = isActiveState(current);
     syncTopic();
 
-    if (current === 'running') {
+    if (isActiveState(current)) {
       if (elapsedStartedAt === null) {
-        elapsedStartedAt = Date.now();
+        const storedElapsedStart = readStoredElapsedStart();
+        setElapsedStart(storedElapsedStart === null ? Date.now() : storedElapsedStart);
       }
       if (!elapsedTimerId) {
         elapsedTimerId = setInterval(updateElapsedBadge, 250);
@@ -115,7 +150,7 @@
         pollId = setInterval(checkStatus, 2000);
       }
     } else {
-      clearElapsedTimer();
+      clearElapsedTimer({ clearStorage: elapsedStartedAt !== null });
       if (pollId) {
         clearInterval(pollId);
         pollId = null;
@@ -187,7 +222,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      elapsedStartedAt = Date.now();
+      setElapsedStart(Date.now());
       render(data);
     } catch (failure) {
       showError(failure.message);
