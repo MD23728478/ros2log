@@ -119,13 +119,13 @@ Use your configured host directory instead of `storage` if you changed it:
 
 ```bash
 mkdir -p storage
-sudo chown "10001:$(id -g)" storage
+sudo chown "$(id -u):10001" storage
 sudo chmod 775 storage
 ```
 
-This gives Flask access as UID 10001 and the host runner access through its
-group. New recording folders may need additional write permissions for the
-Delete action in the UI. On the host, open a terminal where ROS2 and any
+This gives the host runner access as the directory owner and Flask access
+through GID 10001. New recording folders may need additional write permissions
+for the Delete action in the UI. On the host, open a terminal where ROS2 and any
 required workspace are configured, then run:
 
 ```bash

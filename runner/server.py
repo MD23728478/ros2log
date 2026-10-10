@@ -258,11 +258,15 @@ class CommandHandler(BaseHTTPRequestHandler):
 
         if self.path == "/metrics":
             try:
-                result = (
-                    collect_metrics(storage_path=host_storage_path())
-                    if config.APP_ENV == "production"
-                    else collect_metrics()
-                )
+                if config.APP_ENV == "production":
+                    storage_path = host_storage_path()
+                    storage_path.mkdir(parents=True, exist_ok=True)
+                    result = collect_metrics(storage_path=storage_path)
+                else:
+                    result = collect_metrics()
+            except OSError as error:
+                self.send_json(500, {"error": f"Could not access runner storage: {error}"})
+                return
             except MetricsError as error:
                 self.send_json(500, {"error": str(error)})
                 return

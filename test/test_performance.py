@@ -125,6 +125,7 @@ def test_production_runner_metrics_use_host_storage(monkeypatch, tmp_path):
         with urlopen(f"http://127.0.0.1:{server.server_port}/metrics") as response:
             assert response.status == 200
         assert paths == [tmp_path / "bags"]
+        assert (tmp_path / "bags").is_dir()
     finally:
         server.shutdown()
         server.server_close()
