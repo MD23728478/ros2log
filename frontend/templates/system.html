@@ -66,11 +66,10 @@
           <h2 id="configuration-title">Configuration</h2>
         </header>
         <dl class="system-config-grid">
-          {% for setting in settings %}
+          {% for key, value in settings.items() %}
             <div class="system-config-item">
-              <dt>{{ setting.label }}</dt>
-              <dd{% if setting.code %} class="system-config-code"{% endif %}>{{ setting.value }}</dd>
-              <span>{{ setting.key }}</span>
+              <dt>{{ key }}</dt>
+              <dd>{{ value }}</dd>
             </div>
           {% endfor %}
         </dl>
