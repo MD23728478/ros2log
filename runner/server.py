@@ -81,6 +81,7 @@ class BackgroundCommand:
             self.return_code = return_code
             self.state = "finished"
             self.deadline_timer.cancel()
+        print(f"Runner background command finished (exit {return_code})", flush=True)
 
     def stop(self, reason: str = "manual") -> None:
         with self.lock:
@@ -95,6 +96,7 @@ class BackgroundCommand:
             self.wait_thread.join()
             return
 
+        print(f"Runner background command stopping ({reason})", flush=True)
         try:
             os.killpg(self.process.pid, signal.SIGINT)
         except ProcessLookupError:
@@ -153,6 +155,7 @@ class BackgroundCommandSlot:
                         else:
                             host_storage_path().mkdir(parents=True, exist_ok=True)
                             arguments[output_index] = str(host_storage_path() / relative)
+            print(f"Runner background command starting: {arguments}", flush=True)
             process = subprocess.Popen(
                 [config.ROS2_EXECUTABLE_PATH or "ros2", *arguments],
                 shell=False,
@@ -209,6 +212,7 @@ def run_command(
     *,
     capture_on_timeout: bool = False,
 ) -> dict[str, int | str | bool]:
+    print(f"Runner command: {arguments}", flush=True)
     try:
         completed = subprocess.run(
             [config.ROS2_EXECUTABLE_PATH or "ros2", *arguments],
@@ -368,7 +372,7 @@ class CommandHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format: str, *arguments) -> None:
-        return
+        print(f"Runner request {self.client_address[0]}: {format % arguments}", flush=True)
 
 
 class RunnerServer(ThreadingHTTPServer):
