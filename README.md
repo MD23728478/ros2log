@@ -1,6 +1,83 @@
 # ros2log
+A frontend for creating and managing ros2 bag recordings.
 
-## Architecture
+## Quickstart
+1. Refresh the Topics list and select the ROS 2 topics you want to use.
+2. In Recording, optionally enter a prefix, then start and stop a bag recording.
+    With the development Compose setup, recordings are saved under `./storage`
+    on the host, mounted as `/storage` in the containers.
+3. On the Recordings page, view a recording's metadata or rename and delete it.
+4. In Topic Monitor, choose one of the selected topics and measure its message
+    frequency (Hz) and bandwidth (B/s). The monitor displays measurements rather
+    than graphs.
+
+## Configuration
+The application sources `config.py` for options, these are documented in the file itself.
+
+| Key | Value | Description / Default |
+|------------|-------|-----------------------------|
+| `APP_ENV` | `"development"` or `"production"` | Application mode. |
+| `RUNNER_STORAGE_PATH` | Directory path | Production recording directory. Default: `./storage`. |
+| `ROS2_COMMAND_TIMEOUT` | Seconds | Timeout for finite ROS 2 commands. |
+| `RECORDING_TIMEOUT_SECONDS` | Seconds | Maximum recording duration. |
+| `ROS2_EXECUTABLE_PATH` | Path or `None` | ROS 2 executable; `None` uses `PATH`. |
+
+
+## Setup
+- Set `APP_ENV = "production"` in `config.py`.
+
+Prepare the storage directory:
+```bash
+mkdir -p storage
+sudo chown "$(id -u):10001" storage
+sudo chmod 775 storage
+```
+
+<details>
+<summary>Use a different storage directory</summary>
+
+Recordings and `app.db` default to `./storage`. To change this, update `config.py`:
+
+```python
+RUNNER_STORAGE_PATH = Path("/data/ros2log")
+```
+
+Update the host path in `compose.yaml`, keeping `/storage` as the container path:
+
+```yaml
+x-storage-volume: &storage-volume /data/ros2log:/storage
+```
+
+Use your chosen directory in the setup commands above.
+
+</details>
+
+Start the runner:
+
+```bash
+python3 -m runner.server
+```
+
+Start the application:
+
+```bash
+docker compose up --build
+```
+
+Access the interface: <http://localhost:5000> (or wherever the service is bound)
+
+## Development
+
+Start the application, Jazzy command runner, and sample ROS 2 topics:
+
+```bash
+docker compose --profile development up --build
+```
+
+Check runner connectivity at <http://localhost:5000/api/ros2/health>.
+
+
+##### Architecture
 
 The Flask application runs in Docker and sends time-limited ROS 2 commands to a
 small command runner over HTTP. During development the runner and random test
@@ -31,27 +108,7 @@ flowchart LR
     Runner --> ROS
 ```
 
-See [DOCUMENTATION.md](DOCUMENTATION.md) for the project structure and coding
-guide.
-
-## Configuration
-
-Edit settings directly in `config.py`:
-
-- `APP_ENV`: `"development"` or `"production"`.
-- `ROS2_COMMAND_TIMEOUT`: maximum duration of a finite ROS 2 command.
-- `ROS2_EXECUTABLE_PATH`: path to the runner's `ros2` executable; leave as `None`
-  to find `ros2` through `PATH` as before. Applies to finite and background commands.
-- `PERFORMANCE_POLL_INTERVAL_SECONDS`: browser performance refresh interval;
-  defaults to 300 seconds.
-- `RECORDING_TIMEOUT_SECONDS`: maximum duration of a recording.
-- `TOPIC_MONITOR_WINDOW`: default and allowed message-count window for topic measurements.
-- `STORAGE_PATH`: absolute path to shared storage as seen by the Flask app and
-  its container; defaults to `/storage`. Recordings and `app.db` live under it.
-- `RUNNER_STORAGE_PATH`: host directory for production recordings. Defaults to
-  `./storage` in the repository. Change this setting in `config.py` to choose
-  another directory; use an absolute path for a directory outside the repository.
-
+##### Storage
 The host path and container path are separate. In `compose.yaml`, the shared
 volume maps `./storage` (relative to the Compose project directory) to
 `/storage` in both development containers. To move only the host files, change
@@ -70,79 +127,7 @@ retaining the old path as a link. Changing `STORAGE_PATH` also changes the
 default persistent database location (`<STORAGE_PATH>/app.db`). Keep the old
 database when moving storage.
 
-The ignore rules in `.gitignore` and `.dockerignore` refer to the default host
-`storage` folder. Update them if you move host storage within the project.
-
-
-## Development
-
-Start the application, Jazzy command runner, and sample ROS 2 topics:
-
-```bash
-docker compose --profile development up --build
-```
-
-Open <http://localhost:5000>.
-
-Check runner connectivity at <http://localhost:5000/api/ros2/health>.
-
-## Quick start
-
-1. Refresh the Topics list and select the ROS 2 topics you want to use.
-2. In Recording, optionally enter a prefix, then start and stop a bag recording.
-    With the development Compose setup, recordings are saved under `./storage`
-    on the host, mounted as `/storage` in the containers.
-3. On the Recordings page, view a recording's metadata or rename and delete it.
-4. In Topic Monitor, choose one of the selected topics and measure its message
-    frequency (Hz) and bandwidth (B/s). The monitor displays measurements rather
-    than graphs.
-
-## Production
-
-Set `APP_ENV = "production"` in `config.py`. By default, recordings and `app.db`
-are stored in the repository's `./storage` directory. To use another host
-directory, edit `RUNNER_STORAGE_PATH` in `config.py`:
-
-```python
-RUNNER_STORAGE_PATH = Path("/data/ros2log")
-```
-
-Then point the host side of `x-storage-volume` in `compose.yaml` at the same
-directory, leaving the container side as `/storage`:
-
-```yaml
-x-storage-volume: &storage-volume /data/ros2log:/storage
-```
-
-On native Linux, prepare the host directory before starting either process.
-Use your configured host directory instead of `storage` if you changed it:
-
-```bash
-mkdir -p storage
-sudo chown "$(id -u):10001" storage
-sudo chmod 775 storage
-```
-
-This gives the host runner access as the directory owner and Flask access
-through GID 10001. New recording folders may need additional write permissions
-for the Delete action in the UI. On the host, open a terminal where ROS2 and any
-required workspace are configured, then run:
-
-```bash
-python3 -m runner.server
-```
-
-In another terminal, start the Flask application:
-
-```bash
-docker compose up --build
-```
-
-The dashboard and Recordings page show the host recording path in production;
-SQLite keeps the container path so Flask can read and manage the files. See
-[DOCUMENTATION.md](DOCUMENTATION.md) for the background command protocol.
-
-## Tests
+#### Tests
 
 Run the test suite in the application container:
 
