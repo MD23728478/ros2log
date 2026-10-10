@@ -7,28 +7,25 @@ from backend.database import get_database
 from backend.rosbag_metadata import MetadataFormatError, parse_rosbag_metadata
 
 
-STORAGE_ROOT = Path("/storage")
-STORAGE_PREFIX = PurePosixPath("/storage")
-
-
 def _error(message, status):
     return jsonify(error=message), status
 
 
 def _metadata_path(output_path):
+    storage_path = current_app.config["STORAGE_PATH"]
+    storage_root = storage_path.resolve()
     try:
-        relative_path = PurePosixPath(output_path).relative_to(STORAGE_PREFIX)
+        relative_path = PurePosixPath(output_path).relative_to(PurePosixPath(storage_path))
     except (TypeError, ValueError):
-        raise MetadataFormatError("Recording path is outside /storage.")
+        raise MetadataFormatError(f"Recording path is outside {storage_root}.")
 
-    storage_root = STORAGE_ROOT.resolve()
     recording_path = (storage_root / Path(*relative_path.parts)).resolve()
     if not recording_path.is_relative_to(storage_root):
-        raise MetadataFormatError("Recording path is outside /storage.")
+        raise MetadataFormatError(f"Recording path is outside {storage_root}.")
 
     metadata_path = (recording_path / "metadata.yaml").resolve()
     if not metadata_path.is_relative_to(storage_root):
-        raise MetadataFormatError("Metadata path is outside /storage.")
+        raise MetadataFormatError(f"Metadata path is outside {storage_root}.")
     return recording_path, metadata_path
 
 

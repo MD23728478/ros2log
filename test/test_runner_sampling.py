@@ -6,13 +6,14 @@ from http.server import ThreadingHTTPServer
 from threading import Thread
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+from unittest.mock import Mock
 
 import pytest
 
 import config
 from backend.app import create_app
 from runner.client import Ros2CommandError, ros2_command
-from runner.server import CommandHandler, run_command
+from runner.server import BackgroundCommandSlot, CommandHandler, run_command
 
 
 @pytest.fixture
@@ -50,6 +51,35 @@ def test_finite_command_preserves_exit_code_and_response(monkeypatch):
     assert run_command(["node", "list"], 2) == {
         "return_code": 3, "stdout": "partial\n", "stderr": "failure\n"
     }
+
+
+def test_finite_command_uses_configured_ros2_path(monkeypatch):
+    monkeypatch.setattr(config, "ROS2_EXECUTABLE_PATH", "/opt/ros/bin/ros2")
+    run = Mock(return_value=subprocess.CompletedProcess([], 0, "", ""))
+    monkeypatch.setattr("runner.server.subprocess.run", run)
+
+    run_command(["node", "list"], 2)
+
+    assert run.call_args.args[0] == ["/opt/ros/bin/ros2", "node", "list"]
+
+
+@pytest.mark.parametrize("configured_path, executable", [
+    (None, "ros2"),
+    ("/opt/ros/bin/ros2", "/opt/ros/bin/ros2"),
+])
+def test_background_command_uses_ros2_path(
+    monkeypatch, configured_path, executable,
+):
+    monkeypatch.setattr(config, "ROS2_EXECUTABLE_PATH", configured_path)
+    popen = Mock()
+    command = Mock()
+    command.result.return_value = {"state": "running"}
+    monkeypatch.setattr("runner.server.subprocess.Popen", popen)
+    monkeypatch.setattr("runner.server.BackgroundCommand", Mock(return_value=command))
+
+    assert BackgroundCommandSlot().start(["bag", "record"], 10) == {"state": "running"}
+
+    assert popen.call_args.args[0] == [executable, "bag", "record"]
 
 
 @pytest.mark.parametrize("output", [b"average rate: 2.0\n", "average rate: 2.0\n", None])

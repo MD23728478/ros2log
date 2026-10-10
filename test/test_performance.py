@@ -1,5 +1,6 @@
 import json
 import shutil
+from html import unescape
 from http.server import ThreadingHTTPServer
 from threading import Thread
 from urllib.request import urlopen
@@ -59,6 +60,16 @@ def test_collect_metrics_for_container_and_host(monkeypatch, tmp_path, container
     assert result["cpu_percent"] == 12.5
     assert result["memory"]["percent"] == 25.0
     assert result["storage"]["percent"] == 50.0
+
+
+def test_collect_metrics_uses_configured_storage_path(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "STORAGE_PATH", tmp_path)
+    monkeypatch.setattr("runner.metrics._is_container", lambda: False)
+    monkeypatch.setattr("runner.metrics._cpu_percent", lambda *args: 0.0)
+    monkeypatch.setattr("runner.metrics._memory", lambda *args: (0, 100))
+    monkeypatch.setattr("runner.metrics._uptime", lambda *args: 0.0)
+
+    assert collect_metrics()["storage"]["path"] == str(tmp_path)
 
 
 def test_collect_metrics_marks_unavailable_platform_values(monkeypatch, tmp_path):
@@ -140,3 +151,22 @@ def test_system_page_shows_metrics_and_configuration(app):
     assert b"PERFORMANCE_POLL_INTERVAL_SECONDS" in response.data
     assert b"ROS2_RUNNER_ADDRESS" in response.data
     assert b'aria-current="page">System' in response.data
+
+
+def test_system_page_shows_all_final_config_values(monkeypatch):
+    monkeypatch.setattr(config, "PERSIST_DATABASE", False)
+    monkeypatch.setattr(config, "DATABASE", "file:system_test?mode=memory&cache=shared")
+    monkeypatch.setattr(config, "CONDITIONAL_VALUE", "long_value/with-details", raising=False)
+    application = create_app()
+    application.config["TESTING"] = True
+
+    try:
+        page = unescape(application.test_client().get("/system").get_data(as_text=True))
+        for key in vars(config):
+            if key.isupper():
+                assert f"<dt>{key}</dt>" in page
+        assert "<dd>long_value/with-details</dd>" in page
+        assert "<dd>86400</dd>" in page
+        assert "<dt>TESTING</dt>" not in page
+    finally:
+        application.extensions["database_keeper"].close()

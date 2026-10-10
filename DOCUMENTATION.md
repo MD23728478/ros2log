@@ -74,7 +74,7 @@ information for a completed recording. The integer ID is the existing
 recording. The recordings page uses this same ID for its rename and delete
 requests; it is not a filename supplied by the browser.
 
-The endpoint looks up the recording's `/storage/...` path in the database and
+The endpoint looks up the recording's path under `STORAGE_PATH` in the database and
 reads its `metadata.yaml`. It never accepts a filesystem path. Metadata schema
 versions 4 through 9 are supported. The response groups the common fields in
 `summary`, topic and split-bag information in `topics` and `files`, and ROS
@@ -82,7 +82,7 @@ diagnostics such as QoS profiles, type hashes, custom data, and schema version
 under `advanced` fields. Exact nanosecond values are JSON strings so browser
 clients do not lose integer precision.
 
-Recordings that were copied into `/storage` without a corresponding database
+Recordings that were copied into `STORAGE_PATH` without a corresponding database
 row do not have a recording ID and cannot be queried through this endpoint.
 
 Errors use the usual `{"error": "..."}` response: `404` for a missing database

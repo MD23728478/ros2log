@@ -760,13 +760,23 @@ body {
 	font-size: 0.78rem;
 }
 
+.performance-card-header {
+	flex-wrap: wrap;
+}
+
+.performance-card-header h3 {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
 .performance-card-meta {
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
 	color: rgba(242, 242, 242, 0.58);
 	font-size: 0.78rem;
-	white-space: nowrap;
+	flex-wrap: wrap;
+	overflow-wrap: anywhere;
 }
 
 .performance-card-header {
@@ -853,16 +863,18 @@ body {
 .system-config-item dt {
 	color: rgba(242, 242, 242, 0.62);
 	font-size: 0.8rem;
+	overflow-wrap: anywhere;
 }
 
 .system-config-item dd {
 	margin: 0.3rem 0 0;
 	overflow-wrap: anywhere;
+	white-space: pre-wrap;
 }
 
 .system-config-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
 	gap: 0.7rem;
 	margin: 0;
 }
