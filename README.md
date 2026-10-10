@@ -47,7 +47,10 @@ Edit settings directly in `config.py`:
 - `RECORDING_TIMEOUT_SECONDS`: maximum duration of a recording.
 - `TOPIC_MONITOR_WINDOW`: default and allowed message-count window for topic measurements.
 - `STORAGE_PATH`: absolute path to shared storage as seen by the Flask app and
-  ROS 2 runner; defaults to `/storage`. Recordings and `app.db` live under it.
+  its container; defaults to `/storage`. Recordings and `app.db` live under it.
+- `RUNNER_STORAGE_PATH`: host directory for production recordings. Defaults to
+  `./storage` in the repository. Change this setting in `config.py` to choose
+  another directory; use an absolute path for a directory outside the repository.
 
 The host path and container path are separate. In `compose.yaml`, the shared
 volume maps `./storage` (relative to the Compose project directory) to
@@ -58,13 +61,14 @@ the container side of `x-storage-volume` to the same absolute path. Also update
 the directory created in `docker/Dockerfile`. Rebuild both images after editing
 `config.py`, since each image copies it at build time.
 
-In production the ROS 2 runner starts on the host, so its `STORAGE_PATH` must
-refer to the same files at the same absolute path that the app sees in its
-container. Mount or link the host directory accordingly. Existing recording
-paths are saved as absolute paths in SQLite; moving the container path also
-requires moving the data and updating those rows, or retaining the old path as
-a link. Changing `STORAGE_PATH` also changes the default persistent database
-location (`<STORAGE_PATH>/app.db`). Keep the old database when moving storage.
+In production the ROS 2 runner converts recording outputs under `STORAGE_PATH`
+to `RUNNER_STORAGE_PATH` on the host. Set the host side of `x-storage-volume` in
+`compose.yaml` to that same host directory so Flask can read the recordings.
+Existing recording paths are saved as absolute paths in SQLite; moving the
+container path also requires moving the data and updating those rows, or
+retaining the old path as a link. Changing `STORAGE_PATH` also changes the
+default persistent database location (`<STORAGE_PATH>/app.db`). Keep the old
+database when moving storage.
 
 The ignore rules in `.gitignore` and `.dockerignore` refer to the default host
 `storage` folder. Update them if you move host storage within the project.
@@ -95,10 +99,37 @@ Check runner connectivity at <http://localhost:5000/api/ros2/health>.
 
 ## Production
 
-Set `APP_ENV = "production"` in `config.py`. On the host, open a terminal where
-ROS2 and any required workspace are configured, then start the runner:
+Set `APP_ENV = "production"` in `config.py`. By default, recordings and `app.db`
+are stored in the repository's `./storage` directory. To use another host
+directory, edit `RUNNER_STORAGE_PATH` in `config.py`:
+
+```python
+RUNNER_STORAGE_PATH = Path("/data/ros2log")
+```
+
+Then point the host side of `x-storage-volume` in `compose.yaml` at the same
+directory, leaving the container side as `/storage`:
+
+```yaml
+x-storage-volume: &storage-volume /data/ros2log:/storage
+```
+
+On native Linux, prepare the host directory before starting either process.
+Use your configured host directory instead of `storage` if you changed it:
 
 ```bash
+mkdir -p storage
+sudo chown "$(id -u):10001" storage
+sudo chmod 2775 storage
+```
+
+The runner owns the directory, while Flask uses GID 10001. The `2` in `2775`
+keeps new recording folders in that group. Start the runner with `umask 002`
+so Flask can rename and delete those folders. On the host, open a terminal
+where ROS2 and any required workspace are configured, then run:
+
+```bash
+umask 002
 python3 -m runner.server
 ```
 
@@ -108,9 +139,8 @@ In another terminal, start the Flask application:
 docker compose up --build
 ```
 
-The runner and Flask application must see the same physical storage at
-the configured `STORAGE_PATH` before using background commands to create bag files. The
-development Compose profile mounts `./storage` into both containers. See
+The dashboard and Recordings page show the host recording path in production;
+SQLite keeps the container path so Flask can read and manage the files. See
 [DOCUMENTATION.md](DOCUMENTATION.md) for the background command protocol.
 
 ## Tests

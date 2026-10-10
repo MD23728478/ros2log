@@ -6,6 +6,7 @@ import signal
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 import config
 from runner.metrics import MetricsError, collect_metrics
@@ -13,6 +14,10 @@ from runner.metrics import MetricsError, collect_metrics
 
 BACKGROUND_OUTPUT_LIMIT = 64 * 1024
 BACKGROUND_STOP_GRACE_SECONDS = 30
+
+
+def host_storage_path() -> Path:
+    return Path(config.__file__).resolve().parent / config.RUNNER_STORAGE_PATH
 
 
 class OutputTail:
@@ -135,6 +140,19 @@ class BackgroundCommandSlot:
                 and self.command.result()["state"] != "finished"
             ):
                 return None
+            if config.APP_ENV == "production" and arguments[:2] == ["bag", "record"]:
+                arguments = arguments.copy()
+                if "--output" in arguments:
+                    output_index = arguments.index("--output") + 1
+                    if output_index < len(arguments):
+                        output = Path(arguments[output_index])
+                        try:
+                            relative = output.relative_to(config.STORAGE_PATH)
+                        except ValueError:
+                            pass
+                        else:
+                            host_storage_path().mkdir(parents=True, exist_ok=True)
+                            arguments[output_index] = str(host_storage_path() / relative)
             process = subprocess.Popen(
                 [config.ROS2_EXECUTABLE_PATH or "ros2", *arguments],
                 shell=False,
@@ -236,7 +254,11 @@ class CommandHandler(BaseHTTPRequestHandler):
 
         if self.path == "/metrics":
             try:
-                result = collect_metrics()
+                result = (
+                    collect_metrics(storage_path=host_storage_path())
+                    if config.APP_ENV == "production"
+                    else collect_metrics()
+                )
             except MetricsError as error:
                 self.send_json(500, {"error": str(error)})
                 return

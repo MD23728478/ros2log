@@ -160,7 +160,7 @@
 
   function render(data) {
     setState(data.state || 'idle');
-    if (data.output) output.textContent = data.output;
+    if (data.output) output.textContent = data.display_output || data.output;
   }
 
   function updateSelection(topics = []) {

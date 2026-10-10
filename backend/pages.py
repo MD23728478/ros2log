@@ -87,10 +87,21 @@ def _recordings():
         if not isinstance(topics, list):
             topics = []
 
+        display_path = row["output_path"]
+        if current_app.config["APP_ENV"] == "production":
+            try:
+                display_path = str(
+                    current_app.config["RUNNER_STORAGE_PATH"]
+                    / Path(display_path).relative_to(current_app.config["STORAGE_PATH"])
+                )
+            except ValueError:
+                pass
+
         recordings.append(
             {
                 "id": row["id"],
                 "output_path": row["output_path"],
+                "display_path": display_path,
                 "display_name": Path(row["output_path"]).name,
                 "status": row["status"],
                 "started_at": row["started_at"],

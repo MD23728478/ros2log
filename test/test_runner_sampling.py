@@ -82,6 +82,26 @@ def test_background_command_uses_ros2_path(
     assert popen.call_args.args[0] == [executable, "bag", "record"]
 
 
+def test_production_recording_uses_host_storage(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "APP_ENV", "production")
+    monkeypatch.setattr(config, "RUNNER_STORAGE_PATH", tmp_path / "bags")
+    popen = Mock()
+    command = Mock()
+    command.result.return_value = {"state": "running"}
+    monkeypatch.setattr("runner.server.subprocess.Popen", popen)
+    monkeypatch.setattr("runner.server.BackgroundCommand", Mock(return_value=command))
+
+    arguments = ["bag", "record", "--output", "/storage/recording-1", "--topics", "/chatter"]
+    BackgroundCommandSlot().start(arguments, 10)
+
+    assert popen.call_args.args[0] == [
+        "ros2", "bag", "record", "--output", str(tmp_path / "bags" / "recording-1"),
+        "--topics", "/chatter",
+    ]
+    assert arguments[3] == "/storage/recording-1"
+    assert (tmp_path / "bags").is_dir()
+
+
 @pytest.mark.parametrize("output", [b"average rate: 2.0\n", "average rate: 2.0\n", None])
 def test_sampling_preserves_timeout_output(monkeypatch, output):
     def subprocess_run(arguments, **options):
