@@ -1,9 +1,12 @@
 import json
 import re
+from pathlib import Path
+from sqlite3 import IntegrityError
 
 from flask import current_app, jsonify, request
 
 from backend.api import blueprint
+from backend.api.config_record import load_recording_config
 from backend.database import get_database
 from runner.client import (
     Ros2BackgroundCommandError,
@@ -37,11 +40,62 @@ def _complete_latest_recording(status):
     database.commit()
 
 
+def _start_recording(output_path, topics, arguments, timeout):
+    database = get_database()
+    try:
+        cursor = database.execute(
+            "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
+            (output_path, json.dumps(topics), "started"),
+        )
+        database.commit()
+    except IntegrityError:
+        database.rollback()
+        return jsonify(
+            error="A recording is already active or this output path is already used."
+        ), 409
+
+    try:
+        result = ros2_background_command_start(*arguments, timeout_seconds=timeout)
+    except Ros2BackgroundCommandError as error:
+        database.execute("DELETE FROM recordings WHERE id = ?", (cursor.lastrowid,))
+        database.commit()
+        return jsonify(error=str(error)), error.status_code or 503
+
+    display_output = output_path
+    if current_app.config["APP_ENV"] == "production":
+        display_output = str(
+            current_app.config["RUNNER_STORAGE_PATH"]
+            / Path(output_path).relative_to(current_app.config["STORAGE_PATH"])
+        )
+    return jsonify(output=output_path, display_output=display_output, **result), 201
+
+
 @blueprint.post("/record/start")
 def record_start():
     body = request.get_json(silent=True) or {}
     if not isinstance(body, dict):
         return jsonify(error="Provide a JSON object."), 400
+
+    if "config_path" in body:
+        try:
+            config_path, output = load_recording_config(body["config_path"])
+        except FileNotFoundError as error:
+            return jsonify(error=str(error)), 404
+        except FileExistsError as error:
+            return jsonify(error=str(error)), 409
+        except ValueError as error:
+            return jsonify(error=str(error)), 400
+        except OSError:
+            current_app.logger.exception("Could not read recording configuration")
+            return jsonify(error="Could not read recording configuration."), 500
+
+        return _start_recording(
+            output, [],
+            ["run", "rosbag2_transport", "recorder", "--ros-args", "-r",
+             "__node:=rosbag2_recorder", "--params-file", config_path,
+             "-p", f"storage.uri:={json.dumps(output)}"],
+            current_app.config["RECORDING_TIMEOUT_SECONDS"],
+        )
 
     topics = body.get("topics")
     prefix = body.get("prefix", "")
@@ -88,25 +142,11 @@ def record_start():
     if prefix:
         recording_name = f"{prefix}-{recording_name}"
     output_path = str(current_app.config["STORAGE_PATH"] / recording_name)
-    database = get_database()
-    database.execute(
-        "INSERT INTO recordings (output_path, topics, status) VALUES (?, ?, ?)",
-        (output_path, json.dumps(topics), "started"),
+    return _start_recording(
+        output_path, topics,
+        ["bag", "record", "--output", output_path, "--topics", *topics],
+        recording_timeout,
     )
-    database.commit()
-
-    try:
-        result = ros2_background_command_start(
-            "bag", "record", "--output", output_path, "--topics", *topics,
-            timeout_seconds=recording_timeout,
-        )
-    except Ros2BackgroundCommandError as error:
-        database.execute("DELETE FROM recordings WHERE output_path = ?", (output_path,))
-        database.commit()
-        status = error.status_code or 503
-        return jsonify(error=str(error)), status
-
-    return jsonify(output=output_path, **result), 201
 
 
 @blueprint.get("/record/status")

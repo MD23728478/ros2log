@@ -75,14 +75,21 @@
       ? `${metrics.memory.percent.toFixed(1)}%` : 'Not available';
     role(card, 'memory-detail').textContent = metrics.memory
       ? `${formatBytes(metrics.memory.used_bytes)} of ${formatBytes(metrics.memory.total_bytes)}` : '—';
+    if (metrics.storage) role(card, 'storage-path').textContent = metrics.storage.path;
+    const freeBytes = metrics.storage && name === 'application'
+      ? (metrics.storage.free_bytes ?? metrics.storage.total_bytes - metrics.storage.used_bytes)
+      : null;
+    const storagePercent = metrics.storage
+      ? (freeBytes === null ? metrics.storage.percent : freeBytes / metrics.storage.total_bytes * 100)
+      : 0;
     role(card, 'storage-value').textContent = metrics.storage
-      ? `${metrics.storage.percent.toFixed(1)}%` : 'Not available';
+      ? `${storagePercent.toFixed(1)}%` : 'Not available';
     role(card, 'storage-detail').textContent = metrics.storage
-      ? `${formatBytes(metrics.storage.used_bytes)} of ${formatBytes(metrics.storage.total_bytes)}` : '—';
+      ? `${formatBytes(freeBytes ?? metrics.storage.used_bytes)} ${freeBytes === null ? 'used' : 'free'} of ${formatBytes(metrics.storage.total_bytes)}` : '—';
     const storageBar = role(card, 'storage-bar');
-    storageBar.style.width = `${metrics.storage?.percent ?? 0}%`;
+    storageBar.style.width = `${storagePercent}%`;
     if (metrics.storage) {
-      storageBar.parentElement.setAttribute('aria-valuenow', String(metrics.storage.percent));
+      storageBar.parentElement.setAttribute('aria-valuenow', String(storagePercent));
       storageBar.parentElement.removeAttribute('aria-valuetext');
     } else {
       storageBar.parentElement.removeAttribute('aria-valuenow');

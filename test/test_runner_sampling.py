@@ -3,6 +3,7 @@ import subprocess
 import sys
 import time
 from http.server import ThreadingHTTPServer
+from pathlib import Path
 from threading import Thread
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -80,6 +81,76 @@ def test_background_command_uses_ros2_path(
     assert BackgroundCommandSlot().start(["bag", "record"], 10) == {"state": "running"}
 
     assert popen.call_args.args[0] == [executable, "bag", "record"]
+
+
+def test_production_recording_uses_host_storage(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "APP_ENV", "production")
+    monkeypatch.setattr(config, "RUNNER_STORAGE_PATH", tmp_path / "bags")
+    popen = Mock()
+    command = Mock()
+    command.result.return_value = {"state": "running"}
+    monkeypatch.setattr("runner.server.subprocess.Popen", popen)
+    monkeypatch.setattr("runner.server.BackgroundCommand", Mock(return_value=command))
+
+    arguments = ["bag", "record", "--output", "/storage/recording-1", "--topics", "/chatter"]
+    BackgroundCommandSlot().start(arguments, 10)
+
+    assert popen.call_args.args[0] == [
+        "ros2", "bag", "record", "--output", str(tmp_path / "bags" / "recording-1"),
+        "--topics", "/chatter",
+    ]
+    assert arguments[3] == "/storage/recording-1"
+    assert (tmp_path / "bags").is_dir()
+
+
+@pytest.mark.parametrize("host_storage", ["relative", "absolute"])
+@pytest.mark.parametrize("quoted", [False, True])
+def test_production_yaml_recording_maps_config_and_output_paths(
+    monkeypatch, tmp_path, host_storage, quoted
+):
+    monkeypatch.setattr(config, "APP_ENV", "production")
+    monkeypatch.setattr(config, "__file__", str(tmp_path / "project" / "config.py"))
+    configured = tmp_path / "bags" if host_storage == "absolute" else Path("bags")
+    monkeypatch.setattr(config, "RUNNER_STORAGE_PATH", configured)
+    host_root = configured if configured.is_absolute() else tmp_path / "project" / configured
+    output = "/storage/robot #1: test"
+    parameter = json.dumps(output) if quoted else output
+    arguments = [
+        "run", "rosbag2_transport", "recorder", "--ros-args", "-r",
+        "__node:=rosbag2_recorder", "--params-file", "/storage/configs/upload.yaml",
+        "-p", f"storage.uri:={parameter}",
+    ]
+    original = arguments.copy()
+    popen = Mock()
+    command = Mock()
+    command.result.return_value = {"state": "running"}
+    monkeypatch.setattr("runner.server.subprocess.Popen", popen)
+    monkeypatch.setattr("runner.server.BackgroundCommand", Mock(return_value=command))
+
+    BackgroundCommandSlot().start(arguments, 10)
+
+    called = popen.call_args.args[0]
+    assert called[8] == str(host_root / "configs" / "upload.yaml")
+    assert json.loads(called[-1].removeprefix("storage.uri:=")) == str(host_root / "robot #1: test")
+    assert arguments == original
+    assert host_root.is_dir()
+
+
+def test_development_yaml_recording_keeps_shared_paths(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "APP_ENV", "development")
+    arguments = [
+        "run", "rosbag2_transport", "recorder", "--ros-args",
+        "--params-file", "/storage/configs/upload.yaml", "-p", 'storage.uri:="/storage/robot"',
+    ]
+    popen = Mock()
+    command = Mock()
+    command.result.return_value = {"state": "running"}
+    monkeypatch.setattr("runner.server.subprocess.Popen", popen)
+    monkeypatch.setattr("runner.server.BackgroundCommand", Mock(return_value=command))
+
+    BackgroundCommandSlot().start(arguments, 10)
+
+    assert popen.call_args.args[0] == ["ros2", *arguments]
 
 
 @pytest.mark.parametrize("output", [b"average rate: 2.0\n", "average rate: 2.0\n", None])

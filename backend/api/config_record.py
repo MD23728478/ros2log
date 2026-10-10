@@ -10,7 +10,12 @@ from backend.api import blueprint
 MAX_CONFIG_BYTES = 1024 * 1024
 
 
-def _recording_output(configuration):
+def _recording_output(content):
+    try:
+        configuration = yaml.safe_load(content.decode("utf-8"))
+    except (UnicodeDecodeError, yaml.YAMLError, RecursionError):
+        raise ValueError("Provide valid UTF-8 YAML.") from None
+
     try:
         output = configuration["rosbag2_recorder"]["ros__parameters"]["storage"]["uri"]
     except (KeyError, TypeError):
@@ -35,6 +40,32 @@ def _recording_output(configuration):
     return str(path)
 
 
+def load_recording_config(config_path):
+    if not isinstance(config_path, str) or not config_path or "\0" in config_path:
+        raise ValueError("Provide the path of an uploaded configuration.")
+
+    path = Path(config_path)
+    storage = current_app.config["STORAGE_PATH"]
+    directory = storage / "configs"
+    if (
+        path.parent != directory
+        or not directory.resolve().is_relative_to(storage.resolve())
+        or not path.resolve().is_relative_to(directory.resolve())
+    ):
+        raise ValueError("Configuration must be inside the shared configs folder.")
+    if not path.is_file():
+        raise FileNotFoundError("Uploaded configuration was not found.")
+
+    with path.open("rb") as config_file:
+        content = config_file.read(MAX_CONFIG_BYTES + 1)
+    if len(content) > MAX_CONFIG_BYTES:
+        raise ValueError("YAML file cannot exceed 1 MB.")
+    output = _recording_output(content)
+    if Path(output).exists():
+        raise FileExistsError("The recording output path already exists.")
+    return str(path), output
+
+
 @blueprint.post("/record/config")
 def upload_recording_config():
     upload = request.files.get("file")
@@ -46,10 +77,7 @@ def upload_recording_config():
         return jsonify(error="YAML file cannot exceed 1 MB."), 413
 
     try:
-        text = content.decode("utf-8")
-        output = _recording_output(yaml.safe_load(text))
-    except (UnicodeDecodeError, yaml.YAMLError, RecursionError):
-        return jsonify(error="Provide valid UTF-8 YAML."), 400
+        output = _recording_output(content)
     except ValueError as error:
         return jsonify(error=str(error)), 400
     except OSError:
