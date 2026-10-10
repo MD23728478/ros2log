@@ -10,6 +10,25 @@ from backend.database import get_database
 blueprint = Blueprint("pages", __name__)
 
 
+SYSTEM_CONFIG = (
+    ("APP_ENV", "Application environment", "text"),
+    ("PERSIST_DATABASE", "Persistent database", "boolean"),
+    ("STORAGE_PATH", "Storage path", "code"),
+    ("SERVER_ADDRESS", "Server address", "code"),
+    ("SERVER_PORT", "Server port", "number"),
+    ("ROS2_RUNNER_ADDRESS", "ROS 2 runner address", "code"),
+    ("ROS2_RUNNER_PORT", "ROS 2 runner port", "number"),
+    ("ROS2_COMMAND_TIMEOUT", "ROS 2 command timeout", "duration"),
+    ("RECORDING_TIMEOUT_SECONDS", "Recording timeout", "duration"),
+    ("TOPIC_MONITOR_WINDOW", "Topic monitor window", "window"),
+    ("PERFORMANCE_POLL_INTERVAL_SECONDS", "Performance refresh interval", "duration"),
+    ("DEBUG", "Debug mode", "boolean"),
+    ("LOGGING_ENABLED", "Application logging", "boolean"),
+    ("LOG_LEVEL", "Log level", "text"),
+    ("DATABASE", "Database", "code"),
+)
+
+
 def _render_page(template, *, active_page, title, **context):
     return render_template(
         template,
@@ -113,4 +132,5 @@ def system_page():
         active_page="system",
         title="System",
         settings=settings,
+        storage_path=current_app.config["STORAGE_PATH"],
     )

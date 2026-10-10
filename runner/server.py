@@ -136,7 +136,7 @@ class BackgroundCommandSlot:
             ):
                 return None
             process = subprocess.Popen(
-                ["ros2", *arguments],
+                [config.ROS2_EXECUTABLE_PATH or "ros2", *arguments],
                 shell=False,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -193,7 +193,7 @@ def run_command(
 ) -> dict[str, int | str | bool]:
     try:
         completed = subprocess.run(
-            ["ros2", *arguments],
+            [config.ROS2_EXECUTABLE_PATH or "ros2", *arguments],
             shell=False,
             capture_output=True,
             text=True,
