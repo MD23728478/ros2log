@@ -108,7 +108,7 @@ def _recordings():
                 "finished_at": row["finished_at"],
                 "topics": topics,
                 "topic_count": len(topics),
-                "topic_summary": ", ".join(topics) if topics else "No topics recorded",
+                "topic_summary": ", ".join(topics) if topics else "Topics not available",
                 "size": _format_size(_recording_filesize(row["output_path"])),
             }
         )

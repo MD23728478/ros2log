@@ -105,15 +105,16 @@ def test_production_recording_uses_host_storage(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("host_storage", ["relative", "absolute"])
 @pytest.mark.parametrize("quoted", [False, True])
+@pytest.mark.parametrize("output_name", ["robot #1: test", "robot-\U0001f9ea"])
 def test_production_yaml_recording_maps_config_and_output_paths(
-    monkeypatch, tmp_path, host_storage, quoted
+    monkeypatch, tmp_path, host_storage, quoted, output_name
 ):
     monkeypatch.setattr(config, "APP_ENV", "production")
     monkeypatch.setattr(config, "__file__", str(tmp_path / "project" / "config.py"))
     configured = tmp_path / "bags" if host_storage == "absolute" else Path("bags")
     monkeypatch.setattr(config, "RUNNER_STORAGE_PATH", configured)
     host_root = configured if configured.is_absolute() else tmp_path / "project" / configured
-    output = "/storage/robot #1: test"
+    output = f"/storage/{output_name}"
     parameter = json.dumps(output) if quoted else output
     arguments = [
         "run", "rosbag2_transport", "recorder", "--ros-args", "-r",
@@ -131,7 +132,8 @@ def test_production_yaml_recording_maps_config_and_output_paths(
 
     called = popen.call_args.args[0]
     assert called[8] == str(host_root / "configs" / "upload.yaml")
-    assert json.loads(called[-1].removeprefix("storage.uri:=")) == str(host_root / "robot #1: test")
+    assert json.loads(called[-1].removeprefix("storage.uri:=")) == str(host_root / output_name)
+    assert output_name in called[-1]
     assert arguments == original
     assert host_root.is_dir()
 

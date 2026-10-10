@@ -93,7 +93,7 @@ def record_start():
             output, [],
             ["run", "rosbag2_transport", "recorder", "--ros-args", "-r",
              "__node:=rosbag2_recorder", "--params-file", config_path,
-             "-p", f"storage.uri:={json.dumps(output)}"],
+             "-p", f"storage.uri:={json.dumps(output, ensure_ascii=False)}"],
             current_app.config["RECORDING_TIMEOUT_SECONDS"],
         )
 
@@ -179,7 +179,7 @@ def record_stop():
         status = error.status_code or 503
         return jsonify(error=str(error)), status
 
-    if result.get("state") == "finished" and result.get("return_code") == 0:
-        _complete_latest_recording("finished")
+    if result.get("state") == "finished":
+        _complete_latest_recording("finished" if result.get("return_code") == 0 else "failed")
 
     return jsonify(result)

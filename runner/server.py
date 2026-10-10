@@ -171,7 +171,7 @@ class BackgroundCommandSlot:
                         continue
                     host_storage_path().mkdir(parents=True, exist_ok=True)
                     host_path = str(host_storage_path() / relative)
-                    arguments[index] = parameter + json.dumps(host_path) if parameter else host_path
+                    arguments[index] = parameter + json.dumps(host_path, ensure_ascii=False) if parameter else host_path
             print(f"Runner background command starting: {arguments}", flush=True)
             process = subprocess.Popen(
                 [config.ROS2_EXECUTABLE_PATH or "ros2", *arguments],

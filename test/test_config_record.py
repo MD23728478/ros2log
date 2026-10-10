@@ -212,12 +212,13 @@ def test_uploaded_config_starts_recorder_and_persists_yaml_output(app, client, s
     assert Path(uploaded["config_path"]).is_file()
 
 
+@pytest.mark.parametrize("output_name", ["robot #1: test", "robot-\U0001f9ea"])
 def test_production_yaml_start_preserves_container_paths_and_displays_host_path(
-    app, client, start_command, tmp_path
+    app, client, start_command, tmp_path, output_name
 ):
     app.config["APP_ENV"] = "production"
     app.config["RUNNER_STORAGE_PATH"] = tmp_path / "host-storage"
-    output = app.config["STORAGE_PATH"] / "robot #1: test"
+    output = app.config["STORAGE_PATH"] / output_name
     content = recording_yaml(str(output)).encode()
     uploaded = upload_config(client, content).get_json()
 
@@ -229,6 +230,7 @@ def test_production_yaml_start_preserves_container_paths_and_displays_host_path(
     arguments = start_command.call_args.args
     assert arguments[-3] == uploaded["config_path"]
     assert json.loads(arguments[-1].removeprefix("storage.uri:=")) == str(output)
+    assert output_name in arguments[-1]
     assert Path(uploaded["config_path"]).read_bytes() == content
     with app.app_context():
         row = get_database().execute("SELECT output_path, status FROM recordings").fetchone()
@@ -378,3 +380,110 @@ def test_saved_recording_path_cannot_be_reused(app, client, start_command):
     start_command.assert_not_called()
     with app.app_context():
         assert get_database().execute("SELECT status FROM recordings").fetchone()["status"] == "finished"
+
+
+@pytest.fixture
+def started_config(app, client, start_command):
+    output = app.config["STORAGE_PATH"] / "yaml-recording"
+    uploaded = upload_config(client, recording_yaml(str(output)).encode()).get_json()
+    response = client.post("/api/record/start", json={"config_path": uploaded["config_path"]})
+    assert response.status_code == 201
+    with app.app_context():
+        return get_database().execute("SELECT id FROM recordings").fetchone()["id"]
+
+
+def test_running_config_stays_active_and_blocks_metadata(app, client, started_config, monkeypatch):
+    monkeypatch.setattr(
+        topic_record, "ros2_background_command_status", Mock(return_value={"state": "running"})
+    )
+
+    assert client.get("/api/record/status").get_json()["state"] == "running"
+    assert client.get(f"/api/recordings/{started_config}/metadata").status_code == 409
+    with app.app_context():
+        row = get_database().execute("SELECT status, finished_at FROM recordings").fetchone()
+    assert row["status"] == "started"
+    assert row["finished_at"] is None
+
+
+@pytest.mark.parametrize("reason, return_code, expected", [
+    ("manual", 0, "finished"), ("timeout", 0, "finished"),
+    (None, 0, "failed"), ("manual", 1, "failed"),
+])
+def test_finished_config_reconciles_and_allows_manual_recording(
+    app, client, started_config, monkeypatch, reason, return_code, expected
+):
+    result = {"state": "finished", "termination_reason": reason, "return_code": return_code}
+    monkeypatch.setattr(topic_record, "ros2_background_command_status", Mock(return_value=result))
+
+    assert client.get("/api/record/status").get_json() == result
+    with app.app_context():
+        row = get_database().execute(
+            "SELECT status, finished_at FROM recordings WHERE id = ?", (started_config,)
+        ).fetchone()
+    assert row["status"] == expected
+    assert row["finished_at"] is not None
+    assert client.post("/api/record/start", json={"topics": ["/topic"]}).status_code == 201
+    with app.app_context():
+        statuses = get_database().execute("SELECT status FROM recordings ORDER BY id").fetchall()
+    assert [row["status"] for row in statuses] == [expected, "started"]
+
+
+@pytest.mark.parametrize("return_code, expected", [(0, "finished"), (1, "failed")])
+def test_config_stop_reconciles_immediately(
+    app, client, started_config, monkeypatch, return_code, expected
+):
+    result = {"state": "finished", "termination_reason": "manual", "return_code": return_code}
+    monkeypatch.setattr(topic_record, "ros2_background_command_stop", Mock(return_value=result))
+
+    response = client.post("/api/record/stop")
+
+    assert response.status_code == 200
+    assert response.get_json() == result
+    with app.app_context():
+        row = get_database().execute("SELECT status, finished_at FROM recordings").fetchone()
+    assert row["status"] == expected
+    assert row["finished_at"] is not None
+
+
+@pytest.mark.parametrize("method, endpoint, helper", [
+    ("get", "/api/record/status", "ros2_background_command_status"),
+    ("post", "/api/record/stop", "ros2_background_command_stop"),
+])
+def test_runner_error_marks_config_failed(app, client, started_config, monkeypatch, method, endpoint, helper):
+    monkeypatch.setattr(
+        topic_record, helper,
+        Mock(side_effect=Ros2BackgroundCommandError("Runner unavailable", status_code=503)),
+    )
+
+    response = getattr(client, method)(endpoint)
+
+    assert response.status_code == 503
+    assert response.get_json() == {"error": "Runner unavailable"}
+    with app.app_context():
+        row = get_database().execute("SELECT status, finished_at FROM recordings").fetchone()
+    assert row["status"] == "failed"
+    assert row["finished_at"] is not None
+
+
+def test_config_listing_does_not_claim_unknown_topics_are_empty(client, started_config):
+    response = client.get("/recordings")
+
+    assert response.status_code == 200
+    assert b"yaml-recording" in response.data
+    assert b"Topics not available" in response.data
+    assert b"No topics recorded" not in response.data
+
+
+def test_yaml_settings_override_manual_fields(app, client, start_command):
+    output = app.config["STORAGE_PATH"] / "yaml-output"
+    uploaded = upload_config(client, recording_yaml(str(output)).encode()).get_json()
+
+    response = client.post("/api/record/start", json={
+        "config_path": uploaded["config_path"], "topics": ["/manual"],
+        "prefix": "manual", "duration_seconds": 2,
+    })
+
+    assert response.status_code == 201
+    assert response.get_json()["output"] == str(output)
+    assert start_command.call_args.kwargs["timeout_seconds"] == app.config["RECORDING_TIMEOUT_SECONDS"]
+    assert "/manual" not in start_command.call_args.args
