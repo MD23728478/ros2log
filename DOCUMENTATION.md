@@ -46,10 +46,10 @@ The runner defaults to listening on `0.0.0.0:8765`; the app connects to `ros2:87
 | Process | Path setting | Default | Use |
 | --- | --- | --- | --- |
 | Flask container | `STORAGE_PATH` | `/storage` | SQLite `app.db`, listing, metadata, rename, delete |
-| Production host runner | `RUNNER_STORAGE_PATH` | `./storage` beside `config.py` | `ros2 bag record` output and runner disk metric |
+| Production host runner | `RUNNER_STORAGE_PATH` | `./storage` beside `config.py` | Recording configs, bag output, and runner disk metric |
 | Development runner container | `STORAGE_PATH` | `/storage` | Shared mounted bag output and runner disk metric |
 
-The Compose bind mount maps the host directory to `/storage` in the app container (and in the development runner container). In production, Flask builds a recording name under `STORAGE_PATH`; the runner translates the `--output` argument of `bag record` to the corresponding path under `RUNNER_STORAGE_PATH`. This translation only occurs for production background `bag record` commands. The runner resolves a relative host path against the directory containing `config.py`, creates the host storage directory when starting a recording or collecting production metrics, and reports its resolved path in metrics.
+The Compose bind mount maps the host directory to `/storage` in the app container (and in the development runner container). For production background recordings, the runner translates `bag record --output` and the native recorder's `--params-file` and `storage.uri` override from `STORAGE_PATH` to `RUNNER_STORAGE_PATH`. Other arguments and the uploaded YAML file remain unchanged. The runner resolves a relative host path against the directory containing `config.py`, creates the host storage directory when starting a recording or collecting production metrics, and reports its resolved path in metrics.
 
 SQLite stores the **container** path such as `/storage/recording-20261010-120000`. The production dashboard and Recordings page derive a host display path from that value; there is no second database path. Keep the host side of the Compose mount and `RUNNER_STORAGE_PATH` pointed at the same physical directory. If the container path changes, existing database rows still contain the old absolute path; moving the files alone does not rewrite those rows. Moving `STORAGE_PATH` also moves the configured `app.db` path. The Flask UID must be able to write the database and read/manage bag directories, and the host runner user must be able to write bag output. A writable top-level directory does not necessarily make new bag subdirectories writable for Flask's Delete action.
 
@@ -68,6 +68,7 @@ SQLite stores the **container** path such as `/storage/recording-20261010-120000
 | `GET /api/ros2/health`, `/api/ros2/status` | `backend/api/ros2.py` | Runner reachability and a separate ROS graph probe |
 | `GET /api/topics` | `backend/api/topic_list.py` | List ROS topics, including hidden topics |
 | `GET /api/topic-monitor` | `backend/api/topic_monitor.py` | Measure one topic's frequency and bandwidth |
+| `POST /api/record/config` | `backend/api/config_record.py` | Validate and save an uploaded recording YAML |
 | `POST /api/record/start`, `GET /api/record/status`, `POST /api/record/stop` | `backend/api/topic_record.py` | Start, reconcile, and stop a bag recording |
 | `POST /api/recordings/<id>/rename`, `/delete` | `backend/api/recordings.py` | Manage a saved bag directory and database row |
 | `GET /api/recordings/<id>/metadata` | `backend/api/recording_metadata.py` | Parse a recorded bag's `metadata.yaml` |
@@ -92,11 +93,44 @@ The background slot is in memory and holds at most one process. It captures up t
 
 ### Recording state transition
 
-`POST /api/record/start` validates fully qualified topic names, an optional safe filename prefix, and an optional positive duration bounded by `RECORDING_TIMEOUT_SECONDS`. It inserts a `started` row **before** asking the runner to start `ros2 bag record --output ... --topics ...`. If the runner start call fails, the route deletes that new row. The runner returns `409` when its background slot is busy. The database also has a unique index on `started`; an attempt to insert while a `started` row already exists raises a SQLite integrity error that this route does not currently translate into a JSON conflict. Recording names use timestamps to the second, so a repeated name in that second can also collide with the unique path constraint.
+Manual `POST /api/record/start` validates fully qualified topic names, an optional safe filename prefix, and an optional positive duration bounded by `RECORDING_TIMEOUT_SECONDS`. Both manual and YAML starts insert a `started` row **before** asking the runner to launch the recorder. If the runner start call fails, the route deletes only that new row. A busy runner slot, an existing active database row, or a reused database output path returns `409`. Manual recording names use timestamps to the second, so a repeated name in that second can also cause a conflict.
 
-`GET /api/record/status` polls the runner and reconciles the latest `started` database row. A finished process is marked `finished` only if it exited with code zero after a manual stop or timeout; otherwise it is `failed`. Runner status errors also mark an active row failed. `POST /api/record/stop` waits for the stop result and marks a zero-exit recording finished. The runner's in-memory state and SQLite are separate; a runner restart loses the background slot, and a stale `started` row must be reconciled or investigated. The response from start includes the stored container `output` and a production `display_output` for the browser.
+`GET /api/record/status` polls the runner and reconciles the latest `started` database row. A finished process is marked `finished` only if it exited with code zero after a manual stop or timeout; otherwise it is `failed`. Runner status errors also mark an active row failed. `POST /api/record/stop` waits for the stop result and marks a finished process `finished` for exit code zero, otherwise `failed`. The runner's in-memory state and SQLite are separate; a runner restart loses the background slot, and a stale `started` row must be reconciled or investigated. The response from start includes the stored container `output` and a production `display_output` for the browser.
 
 The Recordings page reads database rows, calculates directory sizes from the container path, and manages folders through Flask. Rename changes the folder and then the database path. Delete removes the folder and then the row. Metadata lookup requires an existing row; simply copying a bag into storage does not make it appear on the page.
+
+### Configuration Loader API
+
+Upload and start are separate requests. Uploading never starts a recording or inserts a database row.
+
+1. `POST /api/record/config` with multipart field `file` containing UTF-8 YAML, at most 1 MiB. A successful `201` response contains `config_path` (a generated filename under `/storage/configs`) and `output` (the YAML's recording path).
+2. `POST /api/record/start` with JSON containing that `config_path`:
+
+   ```json
+   {"config_path": "/storage/configs/<generated-id>.yaml"}
+   ```
+
+   A successful `201` response contains `output`, `display_output`, and the existing runner state fields. Use the same `/api/record/status` and `/api/record/stop` endpoints as manual recordings.
+
+Minimal example for the default storage path:
+
+```yaml
+rosbag2_recorder:
+  ros__parameters:
+    record:
+      all_topics: true
+    storage:
+      uri: /storage/robot-session-01
+      storage_id: sqlite3
+```
+
+The `storage.uri` must be an absolute, non-root directory inside `STORAGE_PATH`, including after resolving symlinks. Choose a new output path for each recording; an existing folder or previously tracked path cannot be reused. The upload filename is ignored, and the original YAML bytes are preserved. Start revalidates the saved file, then runs `ros2 run rosbag2_transport recorder --ros-args -r __node:=rosbag2_recorder --params-file <config_path> -p storage.uri:=<output>`. The parameter override keeps the YAML's selected output while allowing the production host path translation described above.
+
+When `config_path` is present, manual `topics`, `prefix`, and `duration_seconds` fields are ignored. YAML supplies the recorder options; `RECORDING_TIMEOUT_SECONDS` still applies as the runner's safety timeout. Manual and YAML recordings share one active slot. Flask validates the required node/storage structure and paths; ROS validates the remaining recorder options. A recorder can therefore start and subsequently fail, so keep polling status.
+
+YAML recordings are initially tracked with an empty topic list because ROS may select topics dynamically. The Recordings list shows `Topics not available` for an unknown list; read the actual topics and message counts through `/api/recordings/<id>/metadata` after recording finishes.
+
+Both endpoints return JSON errors: `400` for invalid input, upload `413` for a file over 1 MiB, start `404` for a missing saved config, and start `409` for an existing output or active recording. Filesystem failures return `500`; runner start failures preserve their HTTP status or return `503` for connection failures.
 
 ### Recording metadata
 

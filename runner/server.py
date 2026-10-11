@@ -142,19 +142,36 @@ class BackgroundCommandSlot:
                 and self.command.result()["state"] != "finished"
             ):
                 return None
-            if config.APP_ENV == "production" and arguments[:2] == ["bag", "record"]:
+            if config.APP_ENV == "production" and (
+                arguments[:2] == ["bag", "record"]
+                or arguments[:3] == ["run", "rosbag2_transport", "recorder"]
+            ):
                 arguments = arguments.copy()
-                if "--output" in arguments:
-                    output_index = arguments.index("--output") + 1
-                    if output_index < len(arguments):
-                        output = Path(arguments[output_index])
+                for index, value in enumerate(arguments):
+                    if index and arguments[index - 1] in {"--output", "--params-file"}:
+                        parameter = ""
+                        path = value
+                    elif (
+                        index and arguments[index - 1] in {"-p", "--param"}
+                        and value.startswith("storage.uri:=")
+                    ):
+                        parameter = "storage.uri:="
+                        path = value[len(parameter):]
                         try:
-                            relative = output.relative_to(config.STORAGE_PATH)
-                        except ValueError:
+                            path = json.loads(path)
+                        except json.JSONDecodeError:
                             pass
-                        else:
-                            host_storage_path().mkdir(parents=True, exist_ok=True)
-                            arguments[output_index] = str(host_storage_path() / relative)
+                        if not isinstance(path, str):
+                            continue
+                    else:
+                        continue
+                    try:
+                        relative = Path(path).relative_to(config.STORAGE_PATH)
+                    except ValueError:
+                        continue
+                    host_storage_path().mkdir(parents=True, exist_ok=True)
+                    host_path = str(host_storage_path() / relative)
+                    arguments[index] = parameter + json.dumps(host_path, ensure_ascii=False) if parameter else host_path
             print(f"Runner background command starting: {arguments}", flush=True)
             process = subprocess.Popen(
                 [config.ROS2_EXECUTABLE_PATH or "ros2", *arguments],
