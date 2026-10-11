@@ -8,11 +8,14 @@
 
     <main class="app-dashboard-main" data-bs-theme="dark">
       <div class="dashboard-tools">
-        {% include "topic_list.html" %}
+        {% include "config_loader.html" %}
         {% include "topic_recording.html" %}
+        {% include "topic_list.html" %}
         {% include "topic_monitor.html" %}
       </div>
+
       <script src="{{ url_for('static', filename='js/topic-list.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/config-loader.js') }}"></script>
       <script src="{{ url_for('static', filename='js/topic-recording.js') }}"></script>
       <script src="{{ url_for('static', filename='js/ros2-status.js') }}"></script>
     </main>
