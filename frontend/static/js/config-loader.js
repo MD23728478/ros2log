@@ -135,6 +135,7 @@
     if (!selectedFile || busy || locked) return;
 
     busy = true;
+    window.dispatchEvent(new CustomEvent('recording:config-loading', { detail: busy }));
     showError();
     showStatus('Validating configuration…', 'loading');
     render();
@@ -163,6 +164,10 @@
         throw new Error('The server returned an incomplete configuration response.');
       }
 
+      if (locked) {
+        throw new Error('Wait for the recording to finish before applying the configuration.');
+      }
+
       appliedConfig = {
         configPath: data.config_path,
         output: data.output,
@@ -183,6 +188,7 @@
       );
     } finally {
       busy = false;
+      window.dispatchEvent(new CustomEvent('recording:config-loading', { detail: busy }));
       render();
     }
   }

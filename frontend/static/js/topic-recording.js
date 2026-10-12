@@ -23,6 +23,7 @@
   let activeConfig = null;
   let configRecordingActive = readStoredConfigRecordingState();
   let configLoaderLocked = false;
+  let configLoading = false;
 
   function isActiveState(value) {
     return value === 'running' || value === 'stopping';
@@ -129,6 +130,7 @@
       Boolean(activeConfig) || selectedTopics.length > 0;
 
     start.disabled =
+      configLoading ||
       isActiveState(currentState) ||
       !hasRecordingInput;
   }
@@ -507,6 +509,11 @@
       clearConfiguration();
     }
   );
+
+  window.addEventListener('recording:config-loading', (event) => {
+    configLoading = event.detail;
+    syncStartButton();
+  });
 
   start.addEventListener(
     'click',
