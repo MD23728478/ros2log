@@ -112,15 +112,21 @@ body {
 
 .dashboard-tools {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) clamp(18rem, 24vw, 24rem);
-	grid-template-areas: "recording topics" "monitor topics";
+	grid-template-columns:
+		clamp(15rem, 18vw, 18rem)
+		minmax(26rem, 1fr)
+		clamp(17rem, 20vw, 21rem);
+	grid-template-areas:
+		"config recording topics"
+		"monitor monitor topics";
 	gap: 1rem;
-	align-items: start;
+	align-items: stretch;
 }
 
 .topic-list,
 .topic-monitor,
-.topic-recording {
+.topic-recording,
+.config-loader {
 	min-width: 0;
 	padding: 1rem;
 	border-radius: 0.6rem;
@@ -136,11 +142,161 @@ body {
 	padding: 1.5rem;
 }
 
+.config-loader {
+	grid-area: config;
+	display: flex;
+	flex-direction: column;
+	min-height: clamp(20rem, 34vh, 30rem);
+	padding: 1.5rem;
+}
+
+.config-loader-header {
+	margin-bottom: 1.5rem;
+}
+
+.config-loader-title {
+	margin: 0;
+	font-size: 1.1rem;
+	font-weight: 600;
+}
+
+.config-loader-description {
+	margin: 0.45rem 0 0;
+	color: rgba(242, 242, 242, 0.62);
+	font-size: 0.88rem;
+	line-height: 1.45;
+}
+
+.config-loader-body {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0.8rem;
+}
+
+#config-loader-select {
+	align-self: flex-start;
+	padding: 0.4rem 0.75rem;
+	border: 1px solid rgba(255, 255, 255, 0.16);
+	background: transparent;
+	color: rgba(242, 242, 242, 0.88);
+	font-size: 0.9rem;
+}
+
+#config-loader-select:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.06);
+	border-color: rgba(255, 255, 255, 0.24);
+	color: #fff;
+}
+
+#config-loader-select:disabled {
+	opacity: 0.45;
+}
+
+.config-loader-file {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+
+	width: 100%;
+	min-width: 0;
+	padding: 0.75rem 0.9rem;
+
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 0.4rem;
+	background: rgba(255, 255, 255, 0.025);
+}
+
+.config-loader-file-name {
+	min-width: 0;
+	color: rgba(242, 242, 242, 0.82);
+	font-size: 0.88rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.config-loader-remove {
+	flex: 0 0 auto;
+	width: 1.7rem;
+	height: 1.7rem;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: rgba(242, 242, 242, 0.58);
+	font-size: 1.2rem;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.config-loader-remove:hover {
+	background: rgba(255, 255, 255, 0.07);
+	color: #ffffff;
+}
+
+.config-loader-apply {
+	align-self: center;
+	width: auto;
+	min-width: 10.5rem;
+	margin-top: 0.25rem;
+	padding: 0.6rem 1rem;
+
+	border: 1px solid rgba(255, 255, 255, 0.22);
+	background: rgba(255, 255, 255, 0.62);
+	color: #202020;
+	font-weight: 500;
+}
+
+.config-loader-apply:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.75);
+	border-color: rgba(255, 255, 255, 0.3);
+	color: #111;
+}
+
+.config-loader-apply:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
+.config-loader-status,
+.config-loader-error {
+	font-size: 0.85rem;
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
+
+.config-loader-status {
+	display: none;
+	color: rgba(242, 242, 242, 0.68);
+}
+
+.config-loader-status.success {
+	display: block;
+	color: #8de5aa;
+}
+
+.config-loader-status.loading {
+	display: block;
+	color: rgba(242, 242, 242, 0.68);
+}
+
+.config-loader-error {
+	display: none;
+	color: #ffb3b3;
+}
+
+.config-loader-error.visible {
+	display: block;
+}
+
 .recording-body {
 	flex: 1;
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
-	gap: 2rem;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	gap: 1.5rem;
 }
 
 .recording-settings {
@@ -589,10 +745,28 @@ body {
 
 .btn.loading { opacity: 0.95; }
 
+@media (max-width: 78rem) {
+	.dashboard-tools {
+		grid-template-columns: clamp(15rem, 28vw, 18rem) minmax(0, 1fr);
+		grid-template-areas:
+			"config recording"
+			"topics topics"
+			"monitor monitor";
+	}
+}
+
 @media (max-width: 62rem) {
 	.dashboard-tools {
 		grid-template-columns: minmax(0, 1fr);
-		grid-template-areas: "topics" "recording" "monitor";
+		grid-template-areas:
+			"config"
+			"recording"
+			"topics"
+			"monitor";
+	}
+
+	.config-loader {
+		min-height: 0;
 	}
 }
 
@@ -901,4 +1075,91 @@ body {
 	.system-section-header { align-items: flex-start; flex-direction: column; }
 	.performance-poll-controls { justify-content: flex-start; }
 	.performance-updated { text-align: left; }
+}
+
+
+/* Config mode notice inside Recording */
+.recording-config-mode {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	padding: 0.65rem 0.75rem;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 0.4rem;
+	background: rgba(255, 255, 255, 0.035);
+	color: rgba(242, 242, 242, 0.72);
+	font-size: 0.82rem;
+	line-height: 1.4;
+}
+
+.recording-config-mode[hidden] {
+	display: none;
+}
+
+.recording-config-mode strong {
+	color: rgba(242, 242, 242, 0.92);
+	font-weight: 600;
+}
+
+
+/* Shared message used by Topics + Monitor */
+.dashboard-lock-notice {
+	display: none;
+	padding: 0.6rem 0.7rem;
+	border: 1px solid rgba(255, 255, 255, 0.07);
+	border-radius: 0.4rem;
+	background: rgba(255, 255, 255, 0.03);
+	color: rgba(242, 242, 242, 0.62);
+	font-size: 0.82rem;
+	line-height: 1.4;
+}
+
+
+/* Topics while config mode is active */
+.topic-list.config-locked .dashboard-lock-notice {
+	display: block;
+}
+
+.topic-list.config-locked .topic-list-items {
+	opacity: 0.5;
+}
+
+.topic-list.config-locked .topic-list-search input,
+.topic-list.config-locked #topic-list-refresh {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+
+/* Monitor while config mode is active */
+.topic-monitor.config-locked .dashboard-lock-notice {
+	display: block;
+}
+
+.topic-monitor.config-locked .topic-monitor-form,
+.topic-monitor.config-locked .topic-monitor-result {
+	opacity: 0.5;
+}
+
+.topic-monitor.config-locked button:disabled,
+.topic-monitor.config-locked input:disabled,
+.topic-monitor.config-locked select:disabled {
+	cursor: not-allowed;
+}
+
+
+/* General disabled manual recording settings */
+.recording-settings input:disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+
+/* Config Loader disabled states */
+.config-loader button:disabled {
+	cursor: not-allowed;
+}
+
+.config-loader-remove:disabled {
+	opacity: 0.35;
 }

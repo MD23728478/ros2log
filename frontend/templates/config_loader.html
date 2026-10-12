@@ -1,0 +1,72 @@
+<section class="config-loader" aria-labelledby="config-loader-title">
+  <header class="config-loader-header">
+    <h2 id="config-loader-title" class="config-loader-title">
+      Configuration Loader
+    </h2>
+
+    <p class="config-loader-description">
+      Load a predefined recording configuration.
+    </p>
+  </header>
+
+  <div class="config-loader-body">
+    <input
+      id="config-loader-input"
+      type="file"
+      accept=".yaml,.yml,application/x-yaml,text/yaml"
+      hidden
+    />
+
+    <button
+      id="config-loader-select"
+      class="btn btn-sm btn-secondary"
+      type="button"
+    >
+      Select File
+    </button>
+
+    <div
+      id="config-loader-file"
+      class="config-loader-file"
+      hidden
+    >
+      <span
+        id="config-loader-file-name"
+        class="config-loader-file-name"
+      ></span>
+
+      <button
+        id="config-loader-remove"
+        class="config-loader-remove"
+        type="button"
+        aria-label="Remove selected configuration"
+        title="Remove configuration"
+      >
+        &times;
+      </button>
+    </div>
+
+    <button
+        id="config-loader-apply"
+        class="btn btn-sm btn-secondary config-loader-apply"
+        type="button"
+        hidden
+        disabled
+    >
+        Apply Configuration
+     </button>
+
+    <div
+      id="config-loader-status"
+      class="config-loader-status"
+      role="status"
+      aria-live="polite"
+    ></div>
+
+    <div
+      id="config-loader-error"
+      class="config-loader-error"
+      role="alert"
+    ></div>
+  </div>
+</section>
